@@ -1088,9 +1088,6 @@ export default function HomePage() {
             <div className="progress-track"><span style={{ width: `${Math.min((totalDone / 12) * 100, 100)}%` }} /></div>
             <span>{totalDone}/12</span>
           </button>
-          <button className="round-button" onClick={openAvatarPicker} aria-label="Criar ou editar avatar">
-            <Palette size={22} />
-          </button>
           <button className="round-button reward-nav-button" onClick={() => setRewardsOpen(true)} aria-label="Abrir loja de recompensas">
             <Gift size={22} />
           </button>
@@ -1280,13 +1277,25 @@ export default function HomePage() {
               </div>
               <div className="store-balance"><Star size={20} fill="currentColor" /> {stars}</div>
             </div>
-            <button className="equipment-store-entry" onClick={() => { setRewardsOpen(false); setEquipmentOpen(true); }}>
-              <span className="equipment-entry-preview" aria-hidden="true" />
-              <span><strong>Equipamentos e skins</strong><small>60 itens · equipe no máximo 2</small></span>
-              <ChevronRight />
-            </button>
+            <div className="store-section-buttons" aria-label="Seções da loja">
+              <button className="store-section-entry avatar-store-entry" onClick={() => { setRewardsOpen(false); openAvatarPicker(); }}>
+                <span
+                  className="avatar-entry-preview"
+                  aria-hidden="true"
+                  style={{ backgroundPosition: spritePosition(selectedAvatar.col, selectedAvatar.row) }}
+                />
+                <span><strong>Avatares</strong><small>Kike e Luly · escolher e desbloquear</small></span>
+                <ChevronRight />
+              </button>
+              <button className="store-section-entry equipment-store-entry" onClick={() => { setRewardsOpen(false); setEquipmentOpen(true); }}>
+                <span className="equipment-entry-preview" aria-hidden="true" />
+                <span><strong>Equipamentos e skins</strong><small>60 itens · equipe no máximo 2</small></span>
+                <ChevronRight />
+              </button>
+            </div>
+            <h3 className="store-section-title">Prêmios para resgatar</h3>
             <div className="reward-grid">
-              {rewards.map((item) => {
+              {rewards.filter((item) => item.action !== "avatars").map((item) => {
                 const Icon = item.icon;
                 const affordable = stars >= item.price || item.action === "avatars";
                 return (

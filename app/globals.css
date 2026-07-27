@@ -446,10 +446,14 @@ input, textarea { font: inherit; }
 .store-reward-copy small { margin-top: 3px; color: #718093; }
 .store-reward-price { display: flex; align-items: center; gap: 3px; color: #b66d00; font-weight: 900; white-space: nowrap; }
 .parent-confirm-note { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 16px 0 0; color: #65758b; font-size: 12px; }
-.equipment-store-entry { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; margin-bottom: 14px; border: 3px solid #b5e5df; border-radius: 20px; padding: 12px; text-align: left; color: var(--ink); background: linear-gradient(135deg, #e7fbf7, #fff3c9); cursor: pointer; }
-.equipment-store-entry strong, .equipment-store-entry small { display: block; }
-.equipment-store-entry small { margin-top: 3px; color: #6f7f8e; }
+.store-section-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 14px; }
+.store-section-entry { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; border: 3px solid #b5e5df; border-radius: 20px; padding: 10px; text-align: left; color: var(--ink); background: linear-gradient(135deg, #e7fbf7, #fff3c9); cursor: pointer; }
+.store-section-entry strong, .store-section-entry small { display: block; }
+.store-section-entry small { margin-top: 3px; color: #6f7f8e; font-size: 10px; }
+.avatar-store-entry { border-color: #d3c1f0; background: linear-gradient(135deg, #f1eaff, #e4f9f5); }
+.avatar-entry-preview { width: 50px; aspect-ratio: .824; background: url("/kike-avatar-sprites-20-fitted.png") 0 0 / 500% 400% no-repeat; filter: drop-shadow(0 5px 4px rgba(20,70,62,.14)); }
 .equipment-entry-preview { width: 58px; aspect-ratio: 1; background: url("/kike-equipment-sprites-a.png") 0 0 / 500% 600% no-repeat; }
+.store-section-title { margin: 4px 2px 10px; color: #526982; font-size: 13px; letter-spacing: .02em; }
 .equipment-modal { width: min(100%, 760px); }
 .equipment-summary { display: grid; grid-template-columns: 105px 1fr auto; align-items: center; gap: 14px; margin-bottom: 12px; padding: 12px; border-radius: 20px; background: linear-gradient(135deg, #e9f9f5, #fff4cc); }
 .equipment-large-preview { width: 105px; aspect-ratio: 1.01; background-size: 500% 600%; background-repeat: no-repeat; filter: drop-shadow(0 8px 6px rgba(20,70,62,.17)); }
@@ -658,6 +662,7 @@ input, textarea { font: inherit; }
   .equipment-large-preview { width: 82px; }
   .equipment-summary .store-balance { grid-column: 1 / -1; margin: 0; }
   .equipment-confirm { grid-template-columns: 1fr; gap: 5px; }
+  .store-section-buttons { grid-template-columns: 1fr; }
   .config-list { grid-template-columns: 1fr; }
   .timer-config-list { grid-template-columns: 1fr; }
   .reward-config-card { grid-template-columns: 1fr 100px auto; }
