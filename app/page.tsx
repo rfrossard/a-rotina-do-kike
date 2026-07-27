@@ -15,6 +15,7 @@ import {
   Home,
   IceCream,
   Lock,
+  Music2,
   Palette,
   Pause,
   Play,
@@ -104,6 +105,14 @@ const ROUTINES: Routine[] = [
     accent: "#f06a5f",
     missions: ["Guardar brinquedos", "Arrumar a mesa", "Regar as plantas", "Organizar o quarto"],
   },
+  {
+    id: "piano",
+    label: "Treino de piano",
+    helper: "Hora da música",
+    icon: Music2,
+    accent: "#e1608c",
+    missions: ["Sentar com postura", "Aquecer os dedos", "Praticar a música", "Tocar para a família"],
+  },
 ];
 
 const AVATARS = [
@@ -144,6 +153,8 @@ const RECOMMENDED_TIMERS: Record<string, number> = {
   "escola::Fazer a lição": 25,
   "exercicios::Alongar": 5,
   "exercicios::Fazer exercícios": 15,
+  "piano::Aquecer os dedos": 5,
+  "piano::Praticar a música": 20,
 };
 
 function spritePosition(col: number, row: number) {
@@ -242,10 +253,15 @@ export default function HomePage() {
           timerMinutes?: Record<string, number>;
         };
         window.queueMicrotask(() => {
-          if (config.routines?.length) setRoutines(config.routines);
+          if (config.routines?.length) {
+            setRoutines([
+              ...config.routines,
+              ...ROUTINES.filter((defaultRoutine) => !config.routines?.some((savedRoutine) => savedRoutine.id === defaultRoutine.id)),
+            ]);
+          }
           if (config.rewards?.length) setRewards(config.rewards);
           if (config.missionPoints) setMissionPoints(config.missionPoints);
-          if (config.timerMinutes) setTimerMinutes(config.timerMinutes);
+          if (config.timerMinutes) setTimerMinutes({ ...RECOMMENDED_TIMERS, ...config.timerMinutes });
         });
       }
     } catch {
@@ -464,8 +480,13 @@ export default function HomePage() {
 
   return (
     <main className="game-shell">
-      <div className="scene" aria-label="Mundo da Rotina do Kike">
-        <div className="world-image" aria-hidden="true" />
+      <div className={`scene ${routineId === "piano" && !showRoutines ? "music-mode" : ""}`} aria-label={routineId === "piano" && !showRoutines ? "Sala de música da Rotina do Kike" : "Mundo da Rotina do Kike"}>
+        <div className={`world-image ${routineId === "piano" && !showRoutines ? "music-world" : ""}`} aria-hidden="true" />
+        {routineId === "piano" && !showRoutines && (
+          <div className="floating-notes" aria-hidden="true">
+            <span>♪</span><span>♫</span><span>♩</span><span>♪</span><span>♫</span>
+          </div>
+        )}
         <div
           className={`character-image-layer ${action}`}
           role="img"
@@ -510,6 +531,9 @@ export default function HomePage() {
         </button>
         <button className="world-label home-label" onClick={() => { setRoutineId("casa"); setShowRoutines(false); setAction("wave"); }}>
           <Home size={21} /> Casa
+        </button>
+        <button className="world-label music-label" onClick={() => { setRoutineId("piano"); setShowRoutines(false); setAction("wave"); }}>
+          <Music2 size={21} /> Piano
         </button>
 
         <section className={`mission-dock ${showRoutines ? "expanded" : ""}`} aria-live="polite">

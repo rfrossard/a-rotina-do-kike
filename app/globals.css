@@ -50,6 +50,13 @@ input, textarea { font: inherit; }
   background-size: cover;
   background-position: center 37%;
   transform: scale(1.045);
+  transition: filter .5s ease, opacity .5s ease;
+}
+
+.world-image.music-world {
+  background-image: url("/kike-music-room.png");
+  background-position: center center;
+  transform: scale(1.02);
 }
 
 .character-image-layer {
@@ -209,6 +216,29 @@ input, textarea { font: inherit; }
 .kitchen-label { top: 25%; right: 6%; background: #f3a91f; animation-delay: -.7s; }
 .study-label { top: 43%; left: 5%; background: #8c5fd0; animation-delay: -1.2s; }
 .home-label { top: 43%; right: 5%; background: #ed625a; animation-delay: -1.8s; }
+.music-label { top: 53%; right: 6%; background: #d95788; animation-delay: -2.2s; }
+
+.music-mode .bath-label,
+.music-mode .kitchen-label,
+.music-mode .study-label,
+.music-mode .home-label { opacity: 0; pointer-events: none; }
+.music-mode .music-label { top: 18%; right: 5%; background: #d95788; }
+.music-mode .character-image-layer { top: 43%; width: min(36%, 270px); }
+.music-mode .scene-shade { background: linear-gradient(to bottom, rgba(75, 34, 18, .12), transparent 25%, transparent 60%, rgba(50, 27, 20, .2)); }
+
+.floating-notes { position: absolute; z-index: 3; inset: 12% 4% 32%; overflow: hidden; pointer-events: none; }
+.floating-notes span { position: absolute; color: #ffcf43; font-size: clamp(28px, 6vw, 50px); font-weight: 900; text-shadow: 0 4px 0 rgba(121, 58, 31, .16); animation: note-float 3.8s ease-in-out infinite; }
+.floating-notes span:nth-child(1) { left: 8%; top: 20%; }
+.floating-notes span:nth-child(2) { left: 25%; top: 4%; color: #f5748f; animation-delay: -.8s; }
+.floating-notes span:nth-child(3) { right: 27%; top: 11%; color: #6bd2cc; animation-delay: -1.6s; }
+.floating-notes span:nth-child(4) { right: 8%; top: 27%; color: #f5748f; animation-delay: -2.1s; }
+.floating-notes span:nth-child(5) { left: 15%; top: 57%; color: #8d6ad8; animation-delay: -2.7s; }
+
+@keyframes note-float {
+  0%, 100% { transform: translateY(0) rotate(-5deg) scale(1); opacity: .82; }
+  50% { transform: translateY(-16px) rotate(7deg) scale(1.12); opacity: 1; }
+}
+
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
@@ -475,6 +505,7 @@ input, textarea { font: inherit; }
   .world-label { padding: 7px 10px; font-size: 12px; }
   .bath-label, .kitchen-label { top: 27%; }
   .study-label, .home-label { top: 44%; }
+  .music-label { top: 54%; }
   .mission-list { grid-template-columns: 1fr; max-height: 245px; overflow-y: auto; }
   .brand-lockup { min-width: 48px; }
   .brand-lockup > div:last-child { display: none; }
@@ -503,6 +534,9 @@ input, textarea { font: inherit; }
   .routine-card:last-child { grid-column: span 2; }
   .bath-label, .study-label { left: 4%; }
   .kitchen-label, .home-label { right: 52%; }
+  .music-label { right: 52%; top: 58%; }
+  .music-mode .music-label { right: 4%; top: 18%; }
+  .music-mode .character-image-layer { left: 38%; top: 42%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
