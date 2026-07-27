@@ -11,7 +11,6 @@ import {
   Home,
   IceCream,
   Lock,
-  Mail,
   Palette,
   Plus,
   RotateCcw,
@@ -137,11 +136,9 @@ export default function HomePage() {
   const [rewards, setRewards] = useState<Reward[]>(DEFAULT_REWARDS);
   const [rewardMessage, setRewardMessage] = useState("Escolha uma recompensa");
   const [missionPoints, setMissionPoints] = useState<Record<string, number>>(() => Object.fromEntries(ROUTINES.map((item) => [item.id, 10])));
-  const [parentStep, setParentStep] = useState<"email" | "code" | "dashboard">("email");
-  const [parentEmail, setParentEmail] = useState("");
-  const [parentCode, setParentCode] = useState("");
-  const [parentDevCode, setParentDevCode] = useState("");
-  const [parentMessage, setParentMessage] = useState("Receba um código de acesso no seu e-mail");
+  const [parentStep, setParentStep] = useState<"pin" | "dashboard">("pin");
+  const [parentPin, setParentPin] = useState("");
+  const [parentMessage, setParentMessage] = useState("Digite o PIN de 4 números dos responsáveis");
   const [parentTab, setParentTab] = useState<"adventures" | "rewards" | "bonus">("adventures");
   const [avatarId, setAvatarId] = useState<(typeof AVATARS)[number]["id"]>("classico");
   const [unlockedAvatars, setUnlockedAvatars] = useState<Set<string>>(() => new Set(STARTER_AVATARS));
@@ -161,9 +158,8 @@ export default function HomePage() {
   useEffect(() => {
     fetch("/api/parent-auth")
       .then((response) => response.json())
-      .then((data: { authenticated?: boolean; email?: string }) => {
-        if (data.authenticated && data.email) {
-          setParentEmail(data.email);
+      .then((data: { authenticated?: boolean }) => {
+        if (data.authenticated) {
           setParentStep("dashboard");
           setParentMessage("Sessão de responsável restaurada");
         }
@@ -236,42 +232,25 @@ export default function HomePage() {
     setAction("celebrate");
   }
 
-  async function requestParentCode() {
-    if (!parentEmail.includes("@")) {
-      setParentMessage("Digite um e-mail válido");
+  async function loginParent() {
+    if (parentPin.length !== 4) {
+      setParentMessage("Digite os 4 números do PIN");
       return;
     }
-    setParentMessage("Enviando código...");
-    try {
-      const response = await fetch("/api/parent-auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "request", email: parentEmail }),
-      });
-      const data = await response.json() as { ok?: boolean; devCode?: string; message?: string };
-      if (!response.ok) throw new Error(data.message ?? "Não foi possível enviar o código");
-      setParentDevCode(data.devCode ?? "");
-      setParentStep("code");
-      setParentMessage(`Código enviado para ${parentEmail}`);
-    } catch (error) {
-      setParentMessage(error instanceof Error ? error.message : "Não foi possível enviar o código");
-    }
-  }
-
-  async function verifyParentCode() {
     setParentMessage("Verificando...");
     try {
       const response = await fetch("/api/parent-auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", email: parentEmail, code: parentCode }),
+        body: JSON.stringify({ pin: parentPin }),
       });
       const data = await response.json() as { ok?: boolean; message?: string };
-      if (!response.ok) throw new Error(data.message ?? "Código incorreto");
+      if (!response.ok) throw new Error(data.message ?? "PIN incorreto");
       setParentStep("dashboard");
+      setParentPin("");
       setParentMessage("Acesso autorizado");
     } catch (error) {
-      setParentMessage(error instanceof Error ? error.message : "Código incorreto");
+      setParentMessage(error instanceof Error ? error.message : "PIN incorreto");
     }
   }
 
@@ -283,9 +262,8 @@ export default function HomePage() {
 
   async function logoutParent() {
     await fetch("/api/parent-auth", { method: "DELETE" }).catch(() => undefined);
-    setParentStep("email");
-    setParentCode("");
-    setParentEmail("");
+    setParentStep("pin");
+    setParentPin("");
     setParentMessage("Sessão encerrada");
   }
 
@@ -482,32 +460,20 @@ export default function HomePage() {
           <section className={`game-modal parents-modal ${parentStep === "dashboard" ? "parents-dashboard" : ""}`} role="dialog" aria-modal="true" aria-labelledby="parents-title" onMouseDown={(event) => event.stopPropagation()}>
             <button className="modal-close" onClick={() => setParentsOpen(false)} aria-label="Fechar"><X /></button>
             <span className="eyebrow">ÁREA DOS RESPONSÁVEIS</span>
-            {parentStep === "email" && (
+            {parentStep === "pin" && (
               <div className="parent-auth">
                 <h2 id="parents-title">Entrar como responsável</h2>
-                <div className="auth-illustration"><Mail size={38} /></div>
-                <p>Enviaremos uma senha de uso único para o seu e-mail. Assim, somente os pais conseguem alterar o jogo.</p>
-                <label>E-mail do responsável<input type="email" inputMode="email" autoComplete="email" value={parentEmail} onChange={(event) => setParentEmail(event.target.value)} placeholder="nome@email.com" /></label>
-                <button className="primary-action" onClick={requestParentCode}>ENVIAR CÓDIGO</button>
-                <span className="form-message">{parentMessage}</span>
-              </div>
-            )}
-            {parentStep === "code" && (
-              <div className="parent-auth">
-                <h2 id="parents-title">Digite o código</h2>
                 <div className="auth-illustration"><ShieldCheck size={38} /></div>
-                <p>Enviamos uma senha de seis números para <strong>{parentEmail}</strong>.</p>
-                <label>Código de acesso<input className="code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={parentCode} onChange={(event) => setParentCode(event.target.value.replace(/\D/g, ""))} placeholder="000000" /></label>
-                {parentDevCode && <span className="dev-code">Modo local: use {parentDevCode}</span>}
-                <button className="primary-action" onClick={verifyParentCode}>ENTRAR</button>
-                <button className="text-action" onClick={requestParentCode}>Enviar outro código</button>
+                <p>Use o PIN de 4 números dos responsáveis. Depois de entrar, este aparelho fica autorizado por 30 dias.</p>
+                <label>PIN dos responsáveis<input className="code-input" type="password" inputMode="numeric" autoComplete="current-password" maxLength={4} value={parentPin} onChange={(event) => setParentPin(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") void loginParent(); }} placeholder="••••" autoFocus /></label>
+                <button className="primary-action" onClick={loginParent}>ENTRAR</button>
                 <span className="form-message">{parentMessage}</span>
               </div>
             )}
             {parentStep === "dashboard" && (
               <>
                 <div className="parent-dashboard-heading">
-                  <div><h2 id="parents-title">Configurar o jogo</h2><span><ShieldCheck size={15} /> {parentEmail}</span></div>
+                  <div><h2 id="parents-title">Configurar o jogo</h2><span><ShieldCheck size={15} /> Acesso protegido por PIN</span></div>
                   <button className="text-action" onClick={logoutParent}>Sair</button>
                 </div>
                 <div className="parent-tabs" role="tablist">
