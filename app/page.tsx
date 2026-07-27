@@ -1,6 +1,5 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
 import {
   Bath,
   BookOpen,
@@ -8,26 +7,26 @@ import {
   ChevronLeft,
   Dumbbell,
   Gift,
+  Gamepad2,
   Home,
+  IceCream,
+  Lock,
+  Mail,
   Palette,
   Plus,
   RotateCcw,
+  Save,
   Settings,
+  ShieldCheck,
   Sparkles,
   Star,
   Sun,
+  Timer,
+  Trash2,
   Utensils,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Group, Mesh } from "three";
-
-type AvatarOptions = {
-  skin: string;
-  hair: string;
-  shirt: string;
-  shorts: string;
-};
+import { useEffect, useMemo, useState } from "react";
 
 type Routine = {
   id: string;
@@ -36,6 +35,16 @@ type Routine = {
   icon: typeof Sun;
   accent: string;
   missions: string[];
+};
+
+type Reward = {
+  id: string;
+  title: string;
+  helper: string;
+  price: number;
+  icon: typeof Gift;
+  accent: string;
+  action?: "avatars";
 };
 
 const ROUTINES: Routine[] = [
@@ -81,158 +90,66 @@ const ROUTINES: Routine[] = [
   },
 ];
 
-const DEFAULT_AVATAR: AvatarOptions = {
-  skin: "#f2ad77",
-  hair: "#4a2719",
-  shirt: "#18a9aa",
-  shorts: "#244d79",
-};
+const AVATARS = [
+  { id: "classico", label: "Clássico", detail: "Sem óculos · moletom teal", col: 0, row: 0, price: 0 },
+  { id: "explorador", label: "Explorador", detail: "Óculos azuis · moletom verde", col: 1, row: 0, price: 0 },
+  { id: "bone-vermelho", label: "Boné vermelho", detail: "Óculos azuis · camiseta amarela", col: 2, row: 0, price: 0 },
+  { id: "cacheado", label: "Cacheado", detail: "Óculos azuis · visual grafite", col: 3, row: 0, price: 0 },
+  { id: "laranja", label: "Energia laranja", detail: "Óculos azuis · acenando", col: 4, row: 0, price: 0 },
+  { id: "esportivo-sem-oculos", label: "Esportivo", detail: "Sem óculos · cabelo lateral", col: 0, row: 1, price: 80 },
+  { id: "surpreso-roxo", label: "Surpresa roxa", detail: "Óculos azuis · expressão surpresa", col: 1, row: 1, price: 100 },
+  { id: "bone-para-tras", label: "Boné para trás", detail: "Óculos azuis · piscando", col: 2, row: 1, price: 120 },
+  { id: "jaqueta-azul", label: "Jaqueta azul", detail: "Óculos azuis · sorriso confiante", col: 3, row: 1, price: 140 },
+  { id: "universitario", label: "Universitário", detail: "Óculos azuis · jaqueta verde", col: 4, row: 1, price: 160 },
+  { id: "estrelas", label: "Céu estrelado", detail: "Óculos azuis · cabelo cacheado", col: 0, row: 2, price: 180 },
+  { id: "moletom-amarelo", label: "Sol amarelo", detail: "Óculos azuis · mochila", col: 1, row: 2, price: 200 },
+  { id: "azul-focado", label: "Foco azul", detail: "Óculos azuis · braços cruzados", col: 2, row: 2, price: 220 },
+  { id: "bone-laranja", label: "Boné laranja", detail: "Óculos azuis · colete teal", col: 3, row: 2, price: 240 },
+  { id: "vermelho-pensando", label: "Pensador", detail: "Óculos azuis · moletom vermelho", col: 4, row: 2, price: 260 },
+  { id: "agasalho-navy", label: "Campeão navy", detail: "Óculos azuis · agasalho esportivo", col: 0, row: 3, price: 280 },
+  { id: "paz-teal", label: "Paz teal", detail: "Óculos azuis · expressão alegre", col: 1, row: 3, price: 300 },
+  { id: "aventura-laranja", label: "Aventura", detail: "Óculos azuis · mochila laranja", col: 2, row: 3, price: 320 },
+  { id: "raio-amarelo", label: "Raio amarelo", detail: "Óculos azuis · pose divertida", col: 3, row: 3, price: 340 },
+  { id: "pijama-estrelas", label: "Pijama estelar", detail: "Óculos azuis · sorriso tranquilo", col: 4, row: 3, price: 360 },
+] as const;
 
-function Avatar3D({
-  options,
-  action,
-}: {
-  options: AvatarOptions;
-  action: "idle" | "wave" | "celebrate";
-}) {
-  const root = useRef<Group>(null);
-  const leftArm = useRef<Group>(null);
-  const rightArm = useRef<Group>(null);
-  const leftLeg = useRef<Group>(null);
-  const rightLeg = useRef<Group>(null);
-  const hair = useRef<Mesh>(null);
+const STARTER_AVATARS = new Set(AVATARS.slice(0, 5).map((avatar) => avatar.id));
 
-  useFrame(({ clock }, delta) => {
-    if (!root.current || !leftArm.current || !rightArm.current || !leftLeg.current || !rightLeg.current) return;
-    const t = clock.elapsedTime;
-    const settle = Math.min(delta * 8, 1);
-    root.current.position.y = -1.22 + Math.sin(t * 2) * 0.035;
-    root.current.rotation.y += ((action === "celebrate" ? Math.sin(t * 5) * 0.25 : 0) - root.current.rotation.y) * settle;
-    const wave = action === "wave" ? -1.9 + Math.sin(t * 8) * 0.28 : action === "celebrate" ? -2.35 : -0.12;
-    rightArm.current.rotation.z += (wave - rightArm.current.rotation.z) * settle;
-    leftArm.current.rotation.z += ((action === "celebrate" ? 2.35 : 0.12) - leftArm.current.rotation.z) * settle;
-    leftLeg.current.rotation.x = Math.sin(t * 2) * 0.035;
-    rightLeg.current.rotation.x = -Math.sin(t * 2) * 0.035;
-    if (hair.current) hair.current.rotation.y = Math.sin(t * 1.5) * 0.02;
-  });
+const DEFAULT_REWARDS: Reward[] = [
+  { id: "avatars", title: "Novos avatares", helper: "Desbloquear visuais do Kike", price: 80, icon: Palette, accent: "#8b65d8", action: "avatars" },
+  { id: "tablet", title: "30 min no tablet", helper: "Tempo extra aprovado pelos pais", price: 150, icon: Timer, accent: "#3a9ee8" },
+  { id: "sorvete", title: "Tomar um sorvete", helper: "Vale-sorvete em família", price: 220, icon: IceCream, accent: "#f06b83" },
+  { id: "roblox", title: "Pontos no Roblox", helper: "Quantidade definida pelos pais", price: 300, icon: Gamepad2, accent: "#36b772" },
+];
 
-  return (
-    <group ref={root} scale={1.02}>
-      <mesh position={[0, 0.98, 0]}>
-        <sphereGeometry args={[0.58, 32, 24]} />
-        <meshStandardMaterial color={options.skin} roughness={0.72} />
-      </mesh>
-      <mesh ref={hair} position={[0, 1.32, -0.04]} scale={[1.04, 0.62, 1.03]}>
-        <sphereGeometry args={[0.6, 18, 12]} />
-        <meshStandardMaterial color={options.hair} roughness={0.9} />
-      </mesh>
-      <mesh position={[-0.22, 1.03, 0.51]} scale={[0.88, 1.15, 0.42]}>
-        <sphereGeometry args={[0.09, 18, 12]} />
-        <meshStandardMaterial color="#241c2e" />
-      </mesh>
-      <mesh position={[0.22, 1.03, 0.51]} scale={[0.88, 1.15, 0.42]}>
-        <sphereGeometry args={[0.09, 18, 12]} />
-        <meshStandardMaterial color="#241c2e" />
-      </mesh>
-      <mesh position={[-0.22, 1.05, 0.57]}>
-        <sphereGeometry args={[0.025, 12, 8]} />
-        <meshStandardMaterial color="white" />
-      </mesh>
-      <mesh position={[0.22, 1.05, 0.57]}>
-        <sphereGeometry args={[0.025, 12, 8]} />
-        <meshStandardMaterial color="white" />
-      </mesh>
-      <mesh position={[0, 0.83, 0.54]} scale={[1.5, 0.6, 0.45]}>
-        <sphereGeometry args={[0.1, 16, 10]} />
-        <meshStandardMaterial color="#842b2d" />
-      </mesh>
-
-      <mesh position={[0, 0.1, 0]} scale={[0.82, 1, 0.52]}>
-        <capsuleGeometry args={[0.52, 0.68, 10, 18]} />
-        <meshStandardMaterial color={options.shirt} roughness={0.78} />
-      </mesh>
-      <mesh position={[0, -0.45, 0.02]} scale={[0.88, 0.45, 0.56]}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color={options.shorts} roughness={0.8} />
-      </mesh>
-
-      <group ref={leftArm} position={[-0.53, 0.35, 0]} rotation={[0, 0, 0.12]}>
-        <mesh position={[0, -0.35, 0]}>
-          <capsuleGeometry args={[0.14, 0.5, 8, 14]} />
-          <meshStandardMaterial color={options.shirt} />
-        </mesh>
-        <mesh position={[0, -0.7, 0]}>
-          <sphereGeometry args={[0.16, 18, 12]} />
-          <meshStandardMaterial color={options.skin} />
-        </mesh>
-      </group>
-      <group ref={rightArm} position={[0.53, 0.35, 0]} rotation={[0, 0, -0.12]}>
-        <mesh position={[0, -0.35, 0]}>
-          <capsuleGeometry args={[0.14, 0.5, 8, 14]} />
-          <meshStandardMaterial color={options.shirt} />
-        </mesh>
-        <mesh position={[0, -0.7, 0]}>
-          <sphereGeometry args={[0.16, 18, 12]} />
-          <meshStandardMaterial color={options.skin} />
-        </mesh>
-      </group>
-
-      <group ref={leftLeg} position={[-0.25, -0.75, 0]}>
-        <mesh position={[0, -0.4, 0]}>
-          <capsuleGeometry args={[0.17, 0.55, 8, 14]} />
-          <meshStandardMaterial color={options.skin} />
-        </mesh>
-        <mesh position={[0, -0.78, 0.12]} scale={[1, 0.55, 1.45]}>
-          <sphereGeometry args={[0.22, 18, 12]} />
-          <meshStandardMaterial color="#ecf7f5" />
-        </mesh>
-      </group>
-      <group ref={rightLeg} position={[0.25, -0.75, 0]}>
-        <mesh position={[0, -0.4, 0]}>
-          <capsuleGeometry args={[0.17, 0.55, 8, 14]} />
-          <meshStandardMaterial color={options.skin} />
-        </mesh>
-        <mesh position={[0, -0.78, 0.12]} scale={[1, 0.55, 1.45]}>
-          <sphereGeometry args={[0.22, 18, 12]} />
-          <meshStandardMaterial color="#ecf7f5" />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-function WorldCanvas({
-  avatar,
-  action,
-}: {
-  avatar: AvatarOptions;
-  action: "idle" | "wave" | "celebrate";
-}) {
-  return (
-    <Canvas
-      className="world-canvas"
-      camera={{ position: [0, 0.5, 6.7], fov: 31 }}
-      dpr={[1, 1.7]}
-      gl={{ antialias: true, alpha: true }}
-    >
-      <ambientLight intensity={2.2} />
-      <directionalLight position={[4, 7, 6]} intensity={2.4} color="#fff5dd" />
-      <directionalLight position={[-4, 2, 2]} intensity={0.7} color="#a5eaff" />
-      <Avatar3D options={avatar} action={action} />
-    </Canvas>
-  );
+function spritePosition(col: number, row: number) {
+  return `${col * 25}% ${row * 33.333}%`;
 }
 
 export default function HomePage() {
+  const [routines, setRoutines] = useState<Routine[]>(ROUTINES);
   const [routineId, setRoutineId] = useState("manha");
   const [completed, setCompleted] = useState<Record<string, string[]>>({});
   const [stars, setStars] = useState(245);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [rewardsOpen, setRewardsOpen] = useState(false);
   const [parentsOpen, setParentsOpen] = useState(false);
-  const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
+  const [rewards, setRewards] = useState<Reward[]>(DEFAULT_REWARDS);
+  const [rewardMessage, setRewardMessage] = useState("Escolha uma recompensa");
+  const [missionPoints, setMissionPoints] = useState<Record<string, number>>(() => Object.fromEntries(ROUTINES.map((item) => [item.id, 10])));
+  const [parentStep, setParentStep] = useState<"email" | "code" | "dashboard">("email");
+  const [parentEmail, setParentEmail] = useState("");
+  const [parentCode, setParentCode] = useState("");
+  const [parentDevCode, setParentDevCode] = useState("");
+  const [parentMessage, setParentMessage] = useState("Receba um código de acesso no seu e-mail");
+  const [parentTab, setParentTab] = useState<"adventures" | "rewards" | "bonus">("adventures");
+  const [avatarId, setAvatarId] = useState<(typeof AVATARS)[number]["id"]>("classico");
+  const [unlockedAvatars, setUnlockedAvatars] = useState<Set<string>>(() => new Set(STARTER_AVATARS));
+  const [avatarMessage, setAvatarMessage] = useState("5 visuais disponíveis · 15 para desbloquear");
   const [action, setAction] = useState<"idle" | "wave" | "celebrate">("wave");
   const [showRoutines, setShowRoutines] = useState(true);
-  const routine = useMemo(() => ROUTINES.find((item) => item.id === routineId) ?? ROUTINES[0], [routineId]);
+  const routine = useMemo(() => routines.find((item) => item.id === routineId) ?? routines[0], [routineId, routines]);
+  const selectedAvatar = AVATARS.find((item) => item.id === avatarId) ?? AVATARS[0];
   const completedNow = completed[routine.id] ?? [];
   const totalDone = Object.values(completed).reduce((sum, list) => sum + list.length, 0);
 
@@ -241,13 +158,42 @@ export default function HomePage() {
     return () => window.clearTimeout(timer);
   }, [routineId]);
 
+  useEffect(() => {
+    fetch("/api/parent-auth")
+      .then((response) => response.json())
+      .then((data: { authenticated?: boolean; email?: string }) => {
+        if (data.authenticated && data.email) {
+          setParentEmail(data.email);
+          setParentStep("dashboard");
+          setParentMessage("Sessão de responsável restaurada");
+        }
+      })
+      .catch(() => undefined);
+
+    try {
+      const saved = window.localStorage.getItem("kike-game-config");
+      if (saved) {
+        const config = JSON.parse(saved) as {
+          routines?: Routine[];
+          rewards?: Reward[];
+          missionPoints?: Record<string, number>;
+        };
+        if (config.routines?.length) setRoutines(config.routines);
+        if (config.rewards?.length) setRewards(config.rewards);
+        if (config.missionPoints) setMissionPoints(config.missionPoints);
+      }
+    } catch {
+      // Keep the safe defaults when a local draft cannot be read.
+    }
+  }, []);
+
   function completeMission(mission: string) {
     if (completedNow.includes(mission)) return;
     setCompleted((current) => ({
       ...current,
       [routine.id]: [...(current[routine.id] ?? []), mission],
     }));
-    setStars((value) => value + 10);
+    setStars((value) => value + (missionPoints[routine.id] ?? 10));
     setAction("celebrate");
     window.setTimeout(() => setAction("idle"), 1600);
   }
@@ -258,11 +204,106 @@ export default function HomePage() {
     setAction("wave");
   }
 
+  function chooseAvatar(item: (typeof AVATARS)[number]) {
+    if (unlockedAvatars.has(item.id)) {
+      setAvatarId(item.id);
+      setAvatarMessage(`${item.label} selecionado`);
+      return;
+    }
+    if (stars < item.price) {
+      setAvatarMessage(`Faltam ${item.price - stars} estrelas para desbloquear ${item.label}`);
+      return;
+    }
+    setStars((value) => value - item.price);
+    setUnlockedAvatars((current) => new Set([...current, item.id]));
+    setAvatarId(item.id);
+    setAvatarMessage(`${item.label} desbloqueado!`);
+    setAction("celebrate");
+  }
+
+  function redeemReward(item: Reward) {
+    if (item.action === "avatars") {
+      setRewardsOpen(false);
+      setAvatarOpen(true);
+      return;
+    }
+    if (stars < item.price) {
+      setRewardMessage(`Faltam ${item.price - stars} estrelas para ${item.title}`);
+      return;
+    }
+    setStars((value) => value - item.price);
+    setRewardMessage(`${item.title} resgatado! Peça a confirmação de um responsável.`);
+    setAction("celebrate");
+  }
+
+  async function requestParentCode() {
+    if (!parentEmail.includes("@")) {
+      setParentMessage("Digite um e-mail válido");
+      return;
+    }
+    setParentMessage("Enviando código...");
+    try {
+      const response = await fetch("/api/parent-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "request", email: parentEmail }),
+      });
+      const data = await response.json() as { ok?: boolean; devCode?: string; message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível enviar o código");
+      setParentDevCode(data.devCode ?? "");
+      setParentStep("code");
+      setParentMessage(`Código enviado para ${parentEmail}`);
+    } catch (error) {
+      setParentMessage(error instanceof Error ? error.message : "Não foi possível enviar o código");
+    }
+  }
+
+  async function verifyParentCode() {
+    setParentMessage("Verificando...");
+    try {
+      const response = await fetch("/api/parent-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", email: parentEmail, code: parentCode }),
+      });
+      const data = await response.json() as { ok?: boolean; message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Código incorreto");
+      setParentStep("dashboard");
+      setParentMessage("Acesso autorizado");
+    } catch (error) {
+      setParentMessage(error instanceof Error ? error.message : "Código incorreto");
+    }
+  }
+
+  function awardBonus(amount: number) {
+    setStars((value) => value + amount);
+    setParentMessage(`${amount} estrelas extras adicionadas`);
+    setAction("celebrate");
+  }
+
+  async function logoutParent() {
+    await fetch("/api/parent-auth", { method: "DELETE" }).catch(() => undefined);
+    setParentStep("email");
+    setParentCode("");
+    setParentEmail("");
+    setParentMessage("Sessão encerrada");
+  }
+
+  function saveConfiguration() {
+    window.localStorage.setItem("kike-game-config", JSON.stringify({ routines, rewards, missionPoints }));
+    setParentMessage("Alterações salvas neste aparelho");
+  }
+
   return (
     <main className="game-shell">
       <div className="scene" aria-label="Mundo da Rotina do Kike">
         <div className="world-image" aria-hidden="true" />
-        <WorldCanvas avatar={avatar} action={action} />
+        <div
+          className={`character-image-layer ${action}`}
+          role="img"
+          aria-label="Kike sorrindo e acenando no centro do seu bairro"
+          style={{ backgroundPosition: spritePosition(selectedAvatar.col, selectedAvatar.row) }}
+        />
         <div className="scene-shade" aria-hidden="true" />
 
         <header className="top-hud">
@@ -281,6 +322,9 @@ export default function HomePage() {
           </div>
           <button className="round-button" onClick={() => setAvatarOpen(true)} aria-label="Criar ou editar avatar">
             <Palette size={22} />
+          </button>
+          <button className="round-button reward-nav-button" onClick={() => setRewardsOpen(true)} aria-label="Abrir loja de recompensas">
+            <Gift size={22} />
           </button>
           <button className="round-button" onClick={() => setParentsOpen(true)} aria-label="Área dos responsáveis">
             <Settings size={22} />
@@ -316,7 +360,7 @@ export default function HomePage() {
 
           {showRoutines ? (
             <div className="routine-grid">
-              {ROUTINES.map((item) => {
+              {routines.map((item) => {
                 const Icon = item.icon;
                 const done = (completed[item.id] ?? []).length;
                 return (
@@ -344,7 +388,7 @@ export default function HomePage() {
                   <button className={`mission-button ${done ? "done" : ""}`} key={mission} onClick={() => completeMission(mission)}>
                     <span className="mission-check">{done ? <Check size={20} /> : <Plus size={20} />}</span>
                     <span>{mission}</span>
-                    <span className="mission-reward"><Star size={15} fill="currentColor" /> +10</span>
+                    <span className="mission-reward"><Star size={15} fill="currentColor" /> +{missionPoints[routine.id] ?? 10}</span>
                   </button>
                 );
               })}
@@ -353,16 +397,81 @@ export default function HomePage() {
         </section>
       </div>
 
+      {rewardsOpen && (
+        <div className="modal-backdrop rewards-backdrop" role="presentation" onMouseDown={() => setRewardsOpen(false)}>
+          <section className="game-modal rewards-modal" role="dialog" aria-modal="true" aria-labelledby="rewards-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setRewardsOpen(false)} aria-label="Fechar"><X /></button>
+            <span className="eyebrow">LOJA DE RECOMPENSAS</span>
+            <div className="store-heading">
+              <div>
+                <h2 id="rewards-title">Troque suas estrelas</h2>
+                <p>{rewardMessage}</p>
+              </div>
+              <div className="store-balance"><Star size={20} fill="currentColor" /> {stars}</div>
+            </div>
+            <div className="reward-grid">
+              {rewards.map((item) => {
+                const Icon = item.icon;
+                const affordable = stars >= item.price || item.action === "avatars";
+                return (
+                  <button
+                    key={item.id}
+                    className={`store-reward ${affordable ? "" : "unaffordable"}`}
+                    style={{ "--reward-accent": item.accent } as React.CSSProperties}
+                    onClick={() => redeemReward(item)}
+                  >
+                    <span className="store-reward-icon"><Icon size={30} /></span>
+                    <span className="store-reward-copy"><strong>{item.title}</strong><small>{item.helper}</small></span>
+                    <span className="store-reward-price"><Star size={15} fill="currentColor" /> {item.price}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="parent-confirm-note"><ShieldCheck size={17} /> Prêmios do mundo real precisam da confirmação de um responsável.</p>
+          </section>
+        </div>
+      )}
+
       {avatarOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setAvatarOpen(false)}>
           <section className="game-modal avatar-modal" role="dialog" aria-modal="true" aria-labelledby="avatar-title" onMouseDown={(event) => event.stopPropagation()}>
             <button className="modal-close" onClick={() => setAvatarOpen(false)} aria-label="Fechar"><X /></button>
             <span className="eyebrow">MEU PERSONAGEM</span>
-            <h2 id="avatar-title">Crie o avatar do Kike</h2>
-            <div className="avatar-preview"><WorldCanvas avatar={avatar} action="wave" /></div>
-            <AvatarPicker label="Tom de pele" values={["#f7c49a", "#e8a16d", "#bd754e", "#75452f"]} value={avatar.skin} onChange={(skin) => setAvatar({ ...avatar, skin })} />
-            <AvatarPicker label="Cabelo" values={["#3c2118", "#8a4c22", "#d2a03e", "#18181c"]} value={avatar.hair} onChange={(hair) => setAvatar({ ...avatar, hair })} />
-            <AvatarPicker label="Camiseta" values={["#18a9aa", "#4a8fe7", "#f06a5f", "#9564dc", "#4fc56a"]} value={avatar.shirt} onChange={(shirt) => setAvatar({ ...avatar, shirt })} />
+            <h2 id="avatar-title">Escolha o Kike de hoje</h2>
+            <div className="avatar-preview">
+              <div
+                className="avatar-sprite-preview"
+                style={{ backgroundPosition: spritePosition(selectedAvatar.col, selectedAvatar.row) }}
+                role="img"
+                aria-label={`${selectedAvatar.label}: ${selectedAvatar.detail}`}
+              />
+              <div className="avatar-description">
+                <strong>{selectedAvatar.label}</strong>
+                <span>{selectedAvatar.detail}</span>
+              </div>
+            </div>
+            <div className="avatar-balance" aria-live="polite">
+              <span><Star size={16} fill="currentColor" /> {stars} estrelas</span>
+              <span>{avatarMessage}</span>
+            </div>
+            <div className="avatar-choices" aria-label="Variações do Kike">
+              {AVATARS.map((item) => (
+                <button
+                  key={item.id}
+                  className={`${item.id === avatarId ? "selected" : ""} ${unlockedAvatars.has(item.id) ? "" : "locked"}`}
+                  onClick={() => chooseAvatar(item)}
+                  aria-pressed={item.id === avatarId}
+                  aria-label={`${item.label}: ${item.detail}${unlockedAvatars.has(item.id) ? "" : `, desbloquear por ${item.price} estrelas`}`}
+                >
+                  <span
+                    className="avatar-choice-image"
+                    style={{ backgroundPosition: spritePosition(item.col, item.row) }}
+                  />
+                  <span className="avatar-choice-label">{item.label}</span>
+                  {!unlockedAvatars.has(item.id) && <span className="avatar-price"><Lock size={11} /> {item.price}</span>}
+                </button>
+              ))}
+            </div>
             <button className="primary-action" onClick={() => { setAvatarOpen(false); setAction("celebrate"); }}>PRONTO!</button>
           </section>
         </div>
@@ -370,47 +479,86 @@ export default function HomePage() {
 
       {parentsOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setParentsOpen(false)}>
-          <section className="game-modal parents-modal" role="dialog" aria-modal="true" aria-labelledby="parents-title" onMouseDown={(event) => event.stopPropagation()}>
+          <section className={`game-modal parents-modal ${parentStep === "dashboard" ? "parents-dashboard" : ""}`} role="dialog" aria-modal="true" aria-labelledby="parents-title" onMouseDown={(event) => event.stopPropagation()}>
             <button className="modal-close" onClick={() => setParentsOpen(false)} aria-label="Fechar"><X /></button>
             <span className="eyebrow">ÁREA DOS RESPONSÁVEIS</span>
-            <h2 id="parents-title">Rotinas e recompensas</h2>
-            <div className="reward-card"><Gift size={28} /><div><span>Próximo prêmio</span><strong>Escolher o filme · 300 ⭐</strong></div></div>
-            <button className="parent-option"><Plus /> <span><strong>Nova rotina</strong><small>Crie tarefas e horários</small></span></button>
-            <button className="parent-option"><Gift /> <span><strong>Novo prêmio</strong><small>Cadastre uma recompensa</small></span></button>
-            <button className="parent-option" onClick={resetDay}><RotateCcw /> <span><strong>Recomeçar o dia</strong><small>Zera apenas este protótipo</small></span></button>
+            {parentStep === "email" && (
+              <div className="parent-auth">
+                <h2 id="parents-title">Entrar como responsável</h2>
+                <div className="auth-illustration"><Mail size={38} /></div>
+                <p>Enviaremos uma senha de uso único para o seu e-mail. Assim, somente os pais conseguem alterar o jogo.</p>
+                <label>E-mail do responsável<input type="email" inputMode="email" autoComplete="email" value={parentEmail} onChange={(event) => setParentEmail(event.target.value)} placeholder="nome@email.com" /></label>
+                <button className="primary-action" onClick={requestParentCode}>ENVIAR CÓDIGO</button>
+                <span className="form-message">{parentMessage}</span>
+              </div>
+            )}
+            {parentStep === "code" && (
+              <div className="parent-auth">
+                <h2 id="parents-title">Digite o código</h2>
+                <div className="auth-illustration"><ShieldCheck size={38} /></div>
+                <p>Enviamos uma senha de seis números para <strong>{parentEmail}</strong>.</p>
+                <label>Código de acesso<input className="code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={parentCode} onChange={(event) => setParentCode(event.target.value.replace(/\D/g, ""))} placeholder="000000" /></label>
+                {parentDevCode && <span className="dev-code">Modo local: use {parentDevCode}</span>}
+                <button className="primary-action" onClick={verifyParentCode}>ENTRAR</button>
+                <button className="text-action" onClick={requestParentCode}>Enviar outro código</button>
+                <span className="form-message">{parentMessage}</span>
+              </div>
+            )}
+            {parentStep === "dashboard" && (
+              <>
+                <div className="parent-dashboard-heading">
+                  <div><h2 id="parents-title">Configurar o jogo</h2><span><ShieldCheck size={15} /> {parentEmail}</span></div>
+                  <button className="text-action" onClick={logoutParent}>Sair</button>
+                </div>
+                <div className="parent-tabs" role="tablist">
+                  <button className={parentTab === "adventures" ? "active" : ""} onClick={() => setParentTab("adventures")}>Aventuras</button>
+                  <button className={parentTab === "rewards" ? "active" : ""} onClick={() => setParentTab("rewards")}>Prêmios</button>
+                  <button className={parentTab === "bonus" ? "active" : ""} onClick={() => setParentTab("bonus")}>Pontos extras</button>
+                </div>
+
+                {parentTab === "adventures" && (
+                  <div className="config-list">
+                    {routines.map((item) => (
+                      <div className="config-card" key={item.id}>
+                        <div className="config-card-title"><strong>{item.label}</strong><label>Pontos por missão<input type="number" min="1" max="500" value={missionPoints[item.id] ?? 10} onChange={(event) => setMissionPoints((current) => ({ ...current, [item.id]: Number(event.target.value) }))} /></label></div>
+                        <label>Nome da aventura<input value={item.label} onChange={(event) => setRoutines((current) => current.map((routineItem) => routineItem.id === item.id ? { ...routineItem, label: event.target.value } : routineItem))} /></label>
+                        <label>Missões, uma por linha<textarea value={item.missions.join("\n")} onChange={(event) => setRoutines((current) => current.map((routineItem) => routineItem.id === item.id ? { ...routineItem, missions: event.target.value.split("\n").filter(Boolean) } : routineItem))} /></label>
+                      </div>
+                    ))}
+                    <button className="add-config-button" onClick={() => setRoutines((current) => [...current, { id: `aventura-${Date.now()}`, label: "Nova aventura", helper: "Nova missão", icon: Star, accent: "#ec7d4d", missions: ["Primeira missão"] }])}><Plus size={18} /> Nova aventura</button>
+                  </div>
+                )}
+
+                {parentTab === "rewards" && (
+                  <div className="config-list">
+                    {rewards.map((item) => (
+                      <div className="config-card reward-config-card" key={item.id}>
+                        <label>Nome do prêmio<input value={item.title} onChange={(event) => setRewards((current) => current.map((reward) => reward.id === item.id ? { ...reward, title: event.target.value } : reward))} /></label>
+                        <label>Valor em estrelas<input type="number" min="1" value={item.price} onChange={(event) => setRewards((current) => current.map((reward) => reward.id === item.id ? { ...reward, price: Number(event.target.value) } : reward))} /></label>
+                        <button className="delete-config" onClick={() => setRewards((current) => current.filter((reward) => reward.id !== item.id))} aria-label={`Excluir ${item.title}`}><Trash2 size={17} /></button>
+                      </div>
+                    ))}
+                    <button className="add-config-button" onClick={() => setRewards((current) => [...current, { id: `premio-${Date.now()}`, title: "Novo prêmio", helper: "Criado pelos responsáveis", price: 100, icon: Gift, accent: "#f2a629" }])}><Plus size={18} /> Novo prêmio</button>
+                  </div>
+                )}
+
+                {parentTab === "bonus" && (
+                  <div className="bonus-panel">
+                    <div className="reward-card"><Sparkles size={28} /><div><span>Saldo atual do Kike</span><strong>{stars} estrelas</strong></div></div>
+                    <p>Premie uma atividade extra que não estava prevista na rotina.</p>
+                    <div className="bonus-grid">
+                      {[5, 10, 25, 50].map((amount) => <button key={amount} onClick={() => awardBonus(amount)}><Star size={20} fill="currentColor" /> +{amount}</button>)}
+                    </div>
+                    <button className="parent-option" onClick={resetDay}><RotateCcw /> <span><strong>Recomeçar o dia</strong><small>Zera o progresso diário</small></span></button>
+                  </div>
+                )}
+                <button className="save-config" onClick={saveConfiguration}><Save size={18} /> SALVAR ALTERAÇÕES</button>
+                <span className="form-message">{parentMessage}</span>
+              </>
+            )}
           </section>
         </div>
       )}
     </main>
-  );
-}
-
-function AvatarPicker({
-  label,
-  values,
-  value,
-  onChange,
-}: {
-  label: string;
-  values: string[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="avatar-picker">
-      <span>{label}</span>
-      <div>
-        {values.map((color) => (
-          <button
-            key={color}
-            className={color === value ? "selected" : ""}
-            style={{ background: color }}
-            onClick={() => onChange(color)}
-            aria-label={`${label}: opção ${color}`}
-            aria-pressed={color === value}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
