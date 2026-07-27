@@ -89,6 +89,17 @@ type EquipmentItem = {
   row: number;
   price: number;
 };
+type ScenePosition = { x: number; y: number };
+type SceneDrag = {
+  key: string;
+  pointerId: number;
+  offsetX: number;
+  offsetY: number;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
 
 type ScreenWakeLock = {
   released: boolean;
@@ -386,6 +397,8 @@ export default function HomePage() {
   const [equipmentFilter, setEquipmentFilter] = useState<"all" | EquipmentCategory>("all");
   const [equipmentMessage, setEquipmentMessage] = useState("Equipe até dois itens");
   const [equipmentPurchasePending, setEquipmentPurchasePending] = useState(false);
+  const [scenePositions, setScenePositions] = useState<Record<string, ScenePosition>>({});
+  const sceneDragRef = useRef<SceneDrag | null>(null);
   const [action, setAction] = useState<"idle" | "wave" | "celebrate">("wave");
   const [showRoutines, setShowRoutines] = useState(true);
   const routine = useMemo(() => routines.find((item) => item.id === routineId) ?? routines[0], [routineId, routines]);
@@ -527,6 +540,17 @@ export default function HomePage() {
       const savedEquipped = JSON.parse(window.localStorage.getItem("kike-equipped-items") ?? "[]") as string[];
       const validEquipped = savedEquipped.filter((id) => EQUIPMENT.some((item) => item.id === id)).slice(-2);
       if (validEquipped.length) window.queueMicrotask(() => setEquippedItems(validEquipped));
+      const savedPositions = JSON.parse(window.localStorage.getItem("kike-scene-positions") ?? "{}") as Record<string, ScenePosition>;
+      const validPositions = Object.fromEntries(Object.entries(savedPositions).filter(([, position]) => (
+        position
+        && Number.isFinite(position.x)
+        && Number.isFinite(position.y)
+        && position.x >= 0
+        && position.x <= 100
+        && position.y >= 0
+        && position.y <= 100
+      )));
+      window.queueMicrotask(() => setScenePositions(validPositions));
     } catch {
       // Keep the safe defaults when a local draft cannot be read.
     }
@@ -1039,6 +1063,56 @@ export default function HomePage() {
     setParentMessage("Alterações salvas neste aparelho");
   }
 
+  function startSceneDrag(event: React.PointerEvent<HTMLElement>, key: string) {
+    const scene = event.currentTarget.closest(".scene")?.getBoundingClientRect();
+    const item = event.currentTarget.getBoundingClientRect();
+    if (!scene) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const computed = window.getComputedStyle(event.currentTarget);
+    const anchorX = Number.parseFloat(computed.left);
+    const anchorY = Number.parseFloat(computed.top);
+    const absoluteAnchorX = scene.left + (Number.isFinite(anchorX) ? anchorX : item.left - scene.left);
+    const absoluteAnchorY = scene.top + (Number.isFinite(anchorY) ? anchorY : item.top - scene.top);
+    sceneDragRef.current = {
+      key,
+      pointerId: event.pointerId,
+      offsetX: event.clientX - absoluteAnchorX,
+      offsetY: event.clientY - absoluteAnchorY,
+      minX: absoluteAnchorX - item.left,
+      maxX: scene.width - (item.right - absoluteAnchorX),
+      minY: absoluteAnchorY - item.top,
+      maxY: scene.height - (item.bottom - absoluteAnchorY),
+    };
+  }
+
+  function moveSceneItem(event: React.PointerEvent<HTMLElement>) {
+    const drag = sceneDragRef.current;
+    const scene = event.currentTarget.closest(".scene")?.getBoundingClientRect();
+    if (!drag || drag.pointerId !== event.pointerId || !scene) return;
+
+    const x = Math.min(drag.maxX, Math.max(drag.minX, event.clientX - scene.left - drag.offsetX));
+    const y = Math.min(drag.maxY, Math.max(drag.minY, event.clientY - scene.top - drag.offsetY));
+    setScenePositions((current) => ({
+      ...current,
+      [drag.key]: { x: (x / scene.width) * 100, y: (y / scene.height) * 100 },
+    }));
+  }
+
+  function finishSceneDrag(event: React.PointerEvent<HTMLElement>) {
+    if (sceneDragRef.current?.pointerId !== event.pointerId) return;
+    sceneDragRef.current = null;
+    setScenePositions((current) => {
+      window.localStorage.setItem("kike-scene-positions", JSON.stringify(current));
+      return current;
+    });
+  }
+
+  function movableStyle(key: string) {
+    const position = scenePositions[key];
+    return position ? { left: `${position.x}%`, top: `${position.y}%`, right: "auto" } : undefined;
+  }
+
   return (
     <main className="game-shell">
       <div className={`scene ${!showRoutines ? "mission-mode" : ""} ${routineId === "piano" && !showRoutines ? "music-mode" : ""}`} aria-label={routineId === "piano" && !showRoutines ? "Sala de música da Rotina do Kike" : `Cenário de ${routine.label}`}>
@@ -1049,27 +1123,40 @@ export default function HomePage() {
           </div>
         )}
         <div
-          className={`character-image-layer ${action}`}
+          className={`character-image-layer movable-scene-item ${scenePositions.kike ? "is-positioned" : ""} ${action}`}
           role="img"
-          aria-label="Kike sorrindo e acenando no centro do seu bairro"
-          style={{ backgroundPosition: spritePosition(selectedAvatar.col, selectedAvatar.row) }}
+          aria-label="Kike sorrindo e acenando no centro do seu bairro. Arraste para mover."
+          style={{ backgroundPosition: spritePosition(selectedAvatar.col, selectedAvatar.row), ...movableStyle("kike") }}
+          onPointerDown={(event) => startSceneDrag(event, "kike")}
+          onPointerMove={moveSceneItem}
+          onPointerUp={finishSceneDrag}
+          onPointerCancel={finishSceneDrag}
         />
         {selectedCompanion && <div
-          className={`companion-image-layer ${action}`}
+          className={`companion-image-layer movable-scene-item ${scenePositions.luly ? "is-positioned" : ""} ${action}`}
           role="img"
-          aria-label={`Luly, Yorkshire Terrier com visual ${selectedCompanion.label}, acompanhando o Kike`}
-          style={{ backgroundPosition: spritePosition(selectedCompanion.col, selectedCompanion.row) }}
+          aria-label={`Luly, Yorkshire Terrier com visual ${selectedCompanion.label}, acompanhando o Kike. Arraste para mover.`}
+          style={{ backgroundPosition: spritePosition(selectedCompanion.col, selectedCompanion.row), ...movableStyle("luly") }}
+          onPointerDown={(event) => startSceneDrag(event, "luly")}
+          onPointerMove={moveSceneItem}
+          onPointerUp={finishSceneDrag}
+          onPointerCancel={finishSceneDrag}
         />}
         {activeEquipment.map((item, index) => (
           <div
-            className={`equipment-scene-layer equipment-slot-${index + 1}`}
+            className={`equipment-scene-layer equipment-slot-${index + 1} movable-scene-item ${scenePositions[`equipment:${item.id}`] ? "is-positioned" : ""}`}
             key={item.id}
             role="img"
             aria-label={`${item.label} equipado`}
             style={{
               backgroundImage: `url("/kike-equipment-sprites-${item.sheet}.png")`,
               backgroundPosition: equipmentPosition(item.col, item.row),
+              ...movableStyle(`equipment:${item.id}`),
             }}
+            onPointerDown={(event) => startSceneDrag(event, `equipment:${item.id}`)}
+            onPointerMove={moveSceneItem}
+            onPointerUp={finishSceneDrag}
+            onPointerCancel={finishSceneDrag}
           />
         ))}
         <div className="scene-shade" aria-hidden="true" />

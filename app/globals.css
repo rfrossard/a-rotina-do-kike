@@ -115,6 +115,8 @@ input, textarea { font: inherit; }
 .equipment-slot-1 { left: 18%; top: 54%; }
 .equipment-slot-2 { right: 3%; top: 39%; animation-delay: -.8s; }
 @keyframes equipment-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+.movable-scene-item { pointer-events: auto; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.movable-scene-item:active { cursor: grabbing; filter: saturate(1.08) drop-shadow(0 16px 14px rgba(20,70,62,.28)); }
 
 @keyframes companion-breathe {
   0%, 100% { transform: scale(1) translateY(0); }
