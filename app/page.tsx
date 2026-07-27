@@ -70,6 +70,15 @@ type Celebration = {
   message: string;
   points: number;
 };
+type ActivityApproval = {
+  id: string;
+  activity: string;
+  routine_id: string;
+  points: number;
+  status: "pending" | "approved" | "rejected";
+  requested_day: string;
+  requested_at: string;
+};
 
 type ScreenWakeLock = {
   released: boolean;
@@ -229,7 +238,9 @@ export default function HomePage() {
   const [parentStep, setParentStep] = useState<"pin" | "dashboard">("pin");
   const [parentPin, setParentPin] = useState("");
   const [parentMessage, setParentMessage] = useState("Digite o PIN de 4 números dos responsáveis");
-  const [parentTab, setParentTab] = useState<"adventures" | "rewards" | "timers" | "bonus">("adventures");
+  const [parentTab, setParentTab] = useState<"reviews" | "adventures" | "rewards" | "timers" | "bonus">("reviews");
+  const [activityApprovals, setActivityApprovals] = useState<ActivityApproval[]>([]);
+  const [reviewingApprovalId, setReviewingApprovalId] = useState<string | null>(null);
   const [avatarId, setAvatarId] = useState<(typeof AVATARS)[number]["id"]>("classico");
   const [previewAvatarId, setPreviewAvatarId] = useState<(typeof AVATARS)[number]["id"]>("classico");
   const [unlockedAvatars, setUnlockedAvatars] = useState<Set<string>>(() => new Set(STARTER_AVATARS));
@@ -281,13 +292,7 @@ export default function HomePage() {
     window.queueMicrotask(() => {
       setActiveTimer((current) => current?.id === finishedTimer.id ? null : current);
       if (finishedTimer.mission) {
-        const points = missionPoints[routine.id] ?? 10;
         completeMissionRef.current(finishedTimer.mission);
-        setCelebration({
-          title: "Parabéns, Kike!",
-          message: `Você concluiu “${finishedTimer.label}”. Os pontos já foram creditados!`,
-          points,
-        });
       } else {
         setAction("celebrate");
         setCelebration({
@@ -346,6 +351,7 @@ export default function HomePage() {
         if (data.authenticated) {
           setParentStep("dashboard");
           setParentMessage("Sessão de responsável restaurada");
+          void loadApprovals();
         }
       })
       .catch(() => undefined);
@@ -428,17 +434,39 @@ export default function HomePage() {
     }
   }
 
-  function completeMission(mission: string) {
+  async function completeMission(mission: string) {
     if (completedNow.includes(mission)) return;
     const points = missionPoints[routine.id] ?? 10;
     setCompleted((current) => ({
       ...current,
       [routine.id]: [...(current[routine.id] ?? []), mission],
     }));
-    setStars((value) => value + points);
-    void recordProgress("mission", points, mission);
     setAction("celebrate");
+    setCelebration({
+      title: "Muito bem, Kike!",
+      message: `Você concluiu “${mission}”. Agora um responsável vai revisar a atividade antes de liberar as ${points} estrelas.`,
+      points: 0,
+    });
     window.setTimeout(() => setAction("idle"), 1600);
+    try {
+      const response = await fetch("/api/approvals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activity: mission, routineId: routine.id, points, day: localDay() }),
+      });
+      const data = await response.json() as { message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível enviar para revisão");
+    } catch (error) {
+      setCompleted((current) => ({
+        ...current,
+        [routine.id]: (current[routine.id] ?? []).filter((item) => item !== mission),
+      }));
+      setCelebration({
+        title: "Tente novamente",
+        message: error instanceof Error ? error.message : "Não foi possível enviar a atividade para revisão.",
+        points: 0,
+      });
+    }
   }
 
   function startMission(mission: string) {
@@ -626,8 +654,45 @@ export default function HomePage() {
       setParentStep("dashboard");
       setParentPin("");
       setParentMessage("Acesso autorizado");
+      setParentTab("reviews");
+      await loadApprovals();
     } catch (error) {
       setParentMessage(error instanceof Error ? error.message : "PIN incorreto");
+    }
+  }
+
+  async function loadApprovals() {
+    try {
+      const response = await fetch("/api/approvals");
+      const data = await response.json() as { approvals?: ActivityApproval[]; message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível carregar as revisões");
+      setActivityApprovals(data.approvals ?? []);
+    } catch (error) {
+      setParentMessage(error instanceof Error ? error.message : "Não foi possível carregar as revisões");
+    }
+  }
+
+  async function reviewActivity(id: string, decision: "approve" | "reject") {
+    setReviewingApprovalId(id);
+    setParentMessage(decision === "approve" ? "Creditando os pontos…" : "Recusando a atividade…");
+    try {
+      const response = await fetch("/api/approvals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, decision }),
+      });
+      const data = await response.json() as { balance?: number; message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível concluir a revisão");
+      if (data.balance !== undefined) {
+        setStars(data.balance);
+        setBalanceDraft(String(data.balance));
+      }
+      setParentMessage(decision === "approve" ? "Atividade aprovada e pontos creditados" : "Atividade recusada sem crédito de pontos");
+      await Promise.all([loadApprovals(), loadProgress()]);
+    } catch (error) {
+      setParentMessage(error instanceof Error ? error.message : "Não foi possível concluir a revisão");
+    } finally {
+      setReviewingApprovalId(null);
     }
   }
 
@@ -1019,10 +1084,40 @@ export default function HomePage() {
                 </div>
                 <div className="parent-tabs" role="tablist">
                   <button className={parentTab === "adventures" ? "active" : ""} onClick={() => setParentTab("adventures")}>Aventuras</button>
+                  <button className={parentTab === "reviews" ? "active" : ""} onClick={() => { setParentTab("reviews"); void loadApprovals(); }}>Revisões</button>
                   <button className={parentTab === "rewards" ? "active" : ""} onClick={() => setParentTab("rewards")}>Prêmios</button>
                   <button className={parentTab === "timers" ? "active" : ""} onClick={() => setParentTab("timers")}>Timers</button>
                   <button className={parentTab === "bonus" ? "active" : ""} onClick={() => setParentTab("bonus")}>Pontos extras</button>
                 </div>
+
+                {parentTab === "reviews" && (
+                  <div className="approval-panel">
+                    <div className="approval-heading">
+                      <div><strong>Atividades aguardando aprovação</strong><span>Os pontos só entram no saldo depois da sua confirmação.</span></div>
+                      <button onClick={() => void loadApprovals()}><RotateCcw size={16} /> Atualizar</button>
+                    </div>
+                    {activityApprovals.filter((item) => item.status === "pending").length === 0 ? (
+                      <div className="approval-empty"><ShieldCheck size={36} /><strong>Tudo revisado!</strong><span>Não há atividades pendentes.</span></div>
+                    ) : (
+                      <div className="approval-list">
+                        {activityApprovals.filter((item) => item.status === "pending").map((item) => (
+                          <article className="approval-card" key={item.id}>
+                            <div>
+                              <span>{routines.find((routineItem) => routineItem.id === item.routine_id)?.label ?? "Atividade"}</span>
+                              <strong>{item.activity}</strong>
+                              <small>{new Date(item.requested_at).toLocaleString("pt-BR")}</small>
+                            </div>
+                            <b><Star size={15} fill="currentColor" /> +{item.points}</b>
+                            <div className="approval-actions">
+                              <button disabled={reviewingApprovalId === item.id} className="reject" onClick={() => void reviewActivity(item.id, "reject")}><X size={17} /> Recusar</button>
+                              <button disabled={reviewingApprovalId === item.id} className="approve" onClick={() => void reviewActivity(item.id, "approve")}><Check size={17} /> Aprovar</button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {parentTab === "adventures" && (
                   <div className="config-list">
