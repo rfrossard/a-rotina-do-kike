@@ -421,9 +421,9 @@ export default function HomePage() {
     setParentMessage("Corrigindo saldo...");
     try {
       const response = await fetch("/api/progress", {
-        method: "PATCH",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ balance }),
+        body: JSON.stringify({ action: "set-balance", balance }),
       });
       const data = await response.json() as { balance?: number; message?: string };
       if (!response.ok) throw new Error(data.message ?? "Não foi possível corrigir o saldo");

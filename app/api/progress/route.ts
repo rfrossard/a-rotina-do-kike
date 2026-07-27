@@ -2,10 +2,12 @@ import { env } from "cloudflare:workers";
 import { readParentSession } from "../../../lib/parent-session";
 
 type ProgressEvent = {
+  action?: "set-balance";
   eventType?: "mission" | "bonus" | "spent";
   activity?: string;
   points?: number;
   day?: string;
+  balance?: number;
 };
 
 async function ensureSchema() {
@@ -75,6 +77,21 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json() as ProgressEvent;
+    if (body.action === "set-balance") {
+      if (!(await readParentSession(request))) {
+        return Response.json({ message: "Acesso de responsável necessário" }, { status: 401 });
+      }
+      const balance = Math.round(Number(body.balance));
+      if (!Number.isFinite(balance) || balance < 0 || balance > 999999) {
+        return Response.json({ message: "Informe um saldo entre 0 e 999.999" }, { status: 400 });
+      }
+      const db = await ensureSchema();
+      await db.prepare(`
+        UPDATE game_state SET balance = ?, updated_at = ? WHERE id = 1
+      `).bind(balance, new Date().toISOString()).run();
+      return Response.json({ ok: true, balance });
+    }
+
     const eventType = body.eventType;
     const points = Math.round(Number(body.points));
     const activity = body.activity?.trim().slice(0, 100) || null;
@@ -103,28 +120,6 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, balance: Number(balance?.balance ?? 0) });
   } catch {
     return Response.json({ message: "Não foi possível salvar o progresso" }, { status: 503 });
-  }
-}
-
-export async function PATCH(request: Request) {
-  if (!(await readParentSession(request))) {
-    return Response.json({ message: "Acesso de responsável necessário" }, { status: 401 });
-  }
-
-  try {
-    const body = await request.json() as { balance?: number };
-    const balance = Math.round(Number(body.balance));
-    if (!Number.isFinite(balance) || balance < 0 || balance > 999999) {
-      return Response.json({ message: "Informe um saldo entre 0 e 999.999" }, { status: 400 });
-    }
-
-    const db = await ensureSchema();
-    await db.prepare(`
-      UPDATE game_state SET balance = ?, updated_at = ? WHERE id = 1
-    `).bind(balance, new Date().toISOString()).run();
-    return Response.json({ ok: true, balance });
-  } catch {
-    return Response.json({ message: "Não foi possível corrigir o saldo" }, { status: 503 });
   }
 }
 
