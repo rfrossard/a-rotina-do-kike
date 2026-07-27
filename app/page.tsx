@@ -1,10 +1,14 @@
 "use client";
 
 import {
+  BarChart3,
   Bath,
   BookOpen,
+  CalendarDays,
   Check,
   ChevronLeft,
+  ChevronRight,
+  Clock3,
   Dumbbell,
   Gift,
   Gamepad2,
@@ -12,6 +16,8 @@ import {
   IceCream,
   Lock,
   Palette,
+  Pause,
+  Play,
   Plus,
   RotateCcw,
   Save,
@@ -44,6 +50,17 @@ type Reward = {
   icon: typeof Gift;
   accent: string;
   action?: "avatars";
+  timerMinutes?: number;
+};
+
+type DailyProgress = { day: string; earned: number; spent: number };
+type ActivityTotal = { activity: string; count: number };
+type ActiveTimer = {
+  label: string;
+  seconds: number;
+  totalSeconds: number;
+  running: boolean;
+  mission?: string;
 };
 
 const ROUTINES: Routine[] = [
@@ -116,13 +133,32 @@ const STARTER_AVATARS = new Set(AVATARS.slice(0, 5).map((avatar) => avatar.id));
 
 const DEFAULT_REWARDS: Reward[] = [
   { id: "avatars", title: "Novos avatares", helper: "Desbloquear visuais do Kike", price: 80, icon: Palette, accent: "#8b65d8", action: "avatars" },
-  { id: "tablet", title: "30 min no tablet", helper: "Tempo extra aprovado pelos pais", price: 150, icon: Timer, accent: "#3a9ee8" },
+  { id: "tablet", title: "30 min no tablet", helper: "Tempo extra aprovado pelos pais", price: 150, icon: Timer, accent: "#3a9ee8", timerMinutes: 30 },
   { id: "sorvete", title: "Tomar um sorvete", helper: "Vale-sorvete em família", price: 220, icon: IceCream, accent: "#f06b83" },
   { id: "roblox", title: "Pontos no Roblox", helper: "Quantidade definida pelos pais", price: 300, icon: Gamepad2, accent: "#36b772" },
 ];
 
+const RECOMMENDED_TIMERS: Record<string, number> = {
+  "manha::Escovar os dentes": 2,
+  "banho::Tomar banho": 10,
+  "escola::Fazer a lição": 25,
+  "exercicios::Alongar": 5,
+  "exercicios::Fazer exercícios": 15,
+};
+
 function spritePosition(col: number, row: number) {
   return `${col * 25}% ${row * 33.333}%`;
+}
+
+function localDay(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function timerKey(routineId: string, mission: string) {
+  return `${routineId}::${mission}`;
 }
 
 export default function HomePage() {
@@ -136,10 +172,17 @@ export default function HomePage() {
   const [rewards, setRewards] = useState<Reward[]>(DEFAULT_REWARDS);
   const [rewardMessage, setRewardMessage] = useState("Escolha uma recompensa");
   const [missionPoints, setMissionPoints] = useState<Record<string, number>>(() => Object.fromEntries(ROUTINES.map((item) => [item.id, 10])));
+  const [timerMinutes, setTimerMinutes] = useState<Record<string, number>>(RECOMMENDED_TIMERS);
+  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [progressTab, setProgressTab] = useState<"calendar" | "activities">("calendar");
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [dailyProgress, setDailyProgress] = useState<DailyProgress[]>([]);
+  const [activityTotals, setActivityTotals] = useState<ActivityTotal[]>([]);
   const [parentStep, setParentStep] = useState<"pin" | "dashboard">("pin");
   const [parentPin, setParentPin] = useState("");
   const [parentMessage, setParentMessage] = useState("Digite o PIN de 4 números dos responsáveis");
-  const [parentTab, setParentTab] = useState<"adventures" | "rewards" | "bonus">("adventures");
+  const [parentTab, setParentTab] = useState<"adventures" | "rewards" | "timers" | "bonus">("adventures");
   const [avatarId, setAvatarId] = useState<(typeof AVATARS)[number]["id"]>("classico");
   const [unlockedAvatars, setUnlockedAvatars] = useState<Set<string>>(() => new Set(STARTER_AVATARS));
   const [avatarMessage, setAvatarMessage] = useState("5 visuais disponíveis · 15 para desbloquear");
@@ -149,11 +192,33 @@ export default function HomePage() {
   const selectedAvatar = AVATARS.find((item) => item.id === avatarId) ?? AVATARS[0];
   const completedNow = completed[routine.id] ?? [];
   const totalDone = Object.values(completed).reduce((sum, list) => sum + list.length, 0);
+  const maxActivityCount = Math.max(1, ...activityTotals.map((item) => Number(item.count)));
+  const calendarCells = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return [
+      ...Array.from({ length: firstWeekday }, () => null),
+      ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+    ];
+  }, [calendarMonth]);
+  const progressByDay = useMemo(() => new Map(dailyProgress.map((item) => [item.day, item])), [dailyProgress]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAction("idle"), 2200);
     return () => window.clearTimeout(timer);
   }, [routineId]);
+
+  useEffect(() => {
+    if (!activeTimer?.running || activeTimer.seconds <= 0) return;
+    const interval = window.setInterval(() => {
+      setActiveTimer((current) => current
+        ? { ...current, seconds: Math.max(0, current.seconds - 1), running: current.seconds > 1 }
+        : null);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [activeTimer?.running, activeTimer?.seconds]);
 
   useEffect(() => {
     fetch("/api/parent-auth")
@@ -173,25 +238,89 @@ export default function HomePage() {
           routines?: Routine[];
           rewards?: Reward[];
           missionPoints?: Record<string, number>;
+          timerMinutes?: Record<string, number>;
         };
-        if (config.routines?.length) setRoutines(config.routines);
-        if (config.rewards?.length) setRewards(config.rewards);
-        if (config.missionPoints) setMissionPoints(config.missionPoints);
+        window.queueMicrotask(() => {
+          if (config.routines?.length) setRoutines(config.routines);
+          if (config.rewards?.length) setRewards(config.rewards);
+          if (config.missionPoints) setMissionPoints(config.missionPoints);
+          if (config.timerMinutes) setTimerMinutes(config.timerMinutes);
+        });
       }
     } catch {
       // Keep the safe defaults when a local draft cannot be read.
     }
+
+    void loadProgress();
   }, []);
+
+  async function loadProgress() {
+    try {
+      const response = await fetch("/api/progress");
+      const data = await response.json() as {
+        daily?: Array<{ day: string; earned: number | string; spent: number | string }>;
+        activities?: Array<{ activity: string; count: number | string }>;
+      };
+      setDailyProgress((data.daily ?? []).map((item) => ({
+        day: item.day,
+        earned: Number(item.earned),
+        spent: Number(item.spent),
+      })));
+      setActivityTotals((data.activities ?? []).map((item) => ({
+        activity: item.activity,
+        count: Number(item.count),
+      })));
+    } catch {
+      // The game remains usable if the history service is temporarily offline.
+    }
+  }
+
+  async function recordProgress(eventType: "mission" | "bonus" | "spent", points: number, activity?: string) {
+    try {
+      await fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventType, points, activity, day: localDay() }),
+      });
+      await loadProgress();
+    } catch {
+      // Progress can continue locally while a history write retries on the next action.
+    }
+  }
 
   function completeMission(mission: string) {
     if (completedNow.includes(mission)) return;
+    const points = missionPoints[routine.id] ?? 10;
     setCompleted((current) => ({
       ...current,
       [routine.id]: [...(current[routine.id] ?? []), mission],
     }));
-    setStars((value) => value + (missionPoints[routine.id] ?? 10));
+    setStars((value) => value + points);
+    void recordProgress("mission", points, mission);
     setAction("celebrate");
     window.setTimeout(() => setAction("idle"), 1600);
+  }
+
+  function startMission(mission: string) {
+    if (completedNow.includes(mission)) return;
+    const minutes = timerMinutes[timerKey(routine.id, mission)] ?? 0;
+    if (minutes <= 0) {
+      completeMission(mission);
+      return;
+    }
+    setActiveTimer({
+      label: mission,
+      mission,
+      seconds: minutes * 60,
+      totalSeconds: minutes * 60,
+      running: false,
+    });
+  }
+
+  function finishTimer() {
+    const mission = activeTimer?.mission;
+    setActiveTimer(null);
+    if (mission) completeMission(mission);
   }
 
   function resetDay() {
@@ -211,6 +340,7 @@ export default function HomePage() {
       return;
     }
     setStars((value) => value - item.price);
+    void recordProgress("spent", item.price, `Avatar: ${item.label}`);
     setUnlockedAvatars((current) => new Set([...current, item.id]));
     setAvatarId(item.id);
     setAvatarMessage(`${item.label} desbloqueado!`);
@@ -228,8 +358,18 @@ export default function HomePage() {
       return;
     }
     setStars((value) => value - item.price);
+    void recordProgress("spent", item.price, item.title);
     setRewardMessage(`${item.title} resgatado! Peça a confirmação de um responsável.`);
     setAction("celebrate");
+    if (item.timerMinutes) {
+      setRewardsOpen(false);
+      setActiveTimer({
+        label: item.title,
+        seconds: item.timerMinutes * 60,
+        totalSeconds: item.timerMinutes * 60,
+        running: false,
+      });
+    }
   }
 
   async function loginParent() {
@@ -256,6 +396,7 @@ export default function HomePage() {
 
   function awardBonus(amount: number) {
     setStars((value) => value + amount);
+    void recordProgress("bonus", amount, "Atividade extra");
     setParentMessage(`${amount} estrelas extras adicionadas`);
     setAction("celebrate");
   }
@@ -268,7 +409,7 @@ export default function HomePage() {
   }
 
   function saveConfiguration() {
-    window.localStorage.setItem("kike-game-config", JSON.stringify({ routines, rewards, missionPoints }));
+    window.localStorage.setItem("kike-game-config", JSON.stringify({ routines, rewards, missionPoints, timerMinutes }));
     setParentMessage("Alterações salvas neste aparelho");
   }
 
@@ -292,12 +433,12 @@ export default function HomePage() {
               <strong>KIKE</strong>
             </div>
           </div>
-          <div className="progress-pill" aria-label={`${totalDone} missões concluídas`}>
+          <button className="progress-pill" onClick={() => { setProgressOpen(true); void loadProgress(); }} aria-label={`Abrir progresso: ${totalDone} missões concluídas`}>
             <Sparkles size={19} />
             <strong>{stars}</strong>
             <div className="progress-track"><span style={{ width: `${Math.min((totalDone / 12) * 100, 100)}%` }} /></div>
             <span>{totalDone}/12</span>
-          </div>
+          </button>
           <button className="round-button" onClick={() => setAvatarOpen(true)} aria-label="Criar ou editar avatar">
             <Palette size={22} />
           </button>
@@ -362,10 +503,11 @@ export default function HomePage() {
             <div className="mission-list">
               {routine.missions.map((mission) => {
                 const done = completedNow.includes(mission);
+                const minutes = timerMinutes[timerKey(routine.id, mission)] ?? 0;
                 return (
-                  <button className={`mission-button ${done ? "done" : ""}`} key={mission} onClick={() => completeMission(mission)}>
+                  <button className={`mission-button ${done ? "done" : ""}`} key={mission} onClick={() => startMission(mission)}>
                     <span className="mission-check">{done ? <Check size={20} /> : <Plus size={20} />}</span>
-                    <span>{mission}</span>
+                    <span>{mission}{minutes > 0 && <small className="mission-timer"><Clock3 size={12} /> {minutes} min</small>}</span>
                     <span className="mission-reward"><Star size={15} fill="currentColor" /> +{missionPoints[routine.id] ?? 10}</span>
                   </button>
                 );
@@ -374,6 +516,86 @@ export default function HomePage() {
           )}
         </section>
       </div>
+
+      {progressOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setProgressOpen(false)}>
+          <section className="game-modal progress-modal" role="dialog" aria-modal="true" aria-labelledby="progress-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setProgressOpen(false)} aria-label="Fechar"><X /></button>
+            <span className="eyebrow">MEU PROGRESSO</span>
+            <h2 id="progress-title">As conquistas do Kike</h2>
+            <div className="progress-tabs" role="tablist">
+              <button className={progressTab === "calendar" ? "active" : ""} onClick={() => setProgressTab("calendar")}><CalendarDays size={17} /> Calendário</button>
+              <button className={progressTab === "activities" ? "active" : ""} onClick={() => setProgressTab("activities")}><BarChart3 size={17} /> Mais feitas</button>
+            </div>
+
+            {progressTab === "calendar" ? (
+              <>
+                <div className="calendar-heading">
+                  <button onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} aria-label="Mês anterior"><ChevronLeft /></button>
+                  <strong>{calendarMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</strong>
+                  <button onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} aria-label="Próximo mês"><ChevronRight /></button>
+                </div>
+                <div className="calendar-weekdays">{["D", "S", "T", "Q", "Q", "S", "S"].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
+                <div className="calendar-grid">
+                  {calendarCells.map((day, index) => {
+                    if (!day) return <span className="calendar-empty" key={`empty-${index}`} />;
+                    const key = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                    const progress = progressByDay.get(key);
+                    return (
+                      <div className={`calendar-day ${key === localDay() ? "today" : ""}`} key={key}>
+                        <strong>{day}</strong>
+                        {progress && progress.earned > 0 && <span className="earned">+{progress.earned}</span>}
+                        {progress && progress.spent > 0 && <span className="spent">−{progress.spent}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="calendar-legend"><span className="earned">Ganhou</span><span className="spent">Gastou</span></div>
+              </>
+            ) : (
+              <div className="activity-chart">
+                {activityTotals.length === 0 ? (
+                  <div className="empty-progress"><BarChart3 size={38} /><strong>As atividades aparecerão aqui</strong><span>Conclua algumas missões para começar o gráfico.</span></div>
+                ) : activityTotals.map((item, index) => (
+                  <div className="activity-row" key={item.activity}>
+                    <span className="activity-rank">{index + 1}</span>
+                    <div><strong>{item.activity}</strong><span className="activity-bar"><i style={{ width: `${(item.count / maxActivityCount) * 100}%` }} /></span></div>
+                    <b>{item.count}×</b>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {activeTimer && (
+        <div className="modal-backdrop timer-backdrop" role="presentation">
+          <section className="game-modal timer-modal" role="dialog" aria-modal="true" aria-labelledby="timer-title">
+            <button className="modal-close" onClick={() => setActiveTimer(null)} aria-label="Fechar timer"><X /></button>
+            <span className="eyebrow">TEMPO DA MISSÃO</span>
+            <h2 id="timer-title">{activeTimer.label}</h2>
+            <div
+              className="timer-ring"
+              style={{ "--timer-progress": `${(activeTimer.seconds / activeTimer.totalSeconds) * 360}deg` } as React.CSSProperties}
+            >
+              <Clock3 size={28} />
+              <strong>{String(Math.floor(activeTimer.seconds / 60)).padStart(2, "0")}:{String(activeTimer.seconds % 60).padStart(2, "0")}</strong>
+              <span>{activeTimer.seconds === 0 ? "Muito bem!" : activeTimer.running ? "Valendo!" : "Pronto?"}</span>
+            </div>
+            {activeTimer.seconds > 0 ? (
+              <div className="timer-actions">
+                <button className="timer-main-action" onClick={() => setActiveTimer((current) => current ? { ...current, running: !current.running } : null)}>
+                  {activeTimer.running ? <><Pause /> PAUSAR</> : <><Play /> COMEÇAR</>}
+                </button>
+                <button className="timer-reset" onClick={() => setActiveTimer((current) => current ? { ...current, seconds: current.totalSeconds, running: false } : null)}><RotateCcw /> Reiniciar</button>
+              </div>
+            ) : (
+              <button className="primary-action" onClick={finishTimer}>{activeTimer.mission ? "CONCLUIR MISSÃO" : "FINALIZAR"}</button>
+            )}
+          </section>
+        </div>
+      )}
 
       {rewardsOpen && (
         <div className="modal-backdrop rewards-backdrop" role="presentation" onMouseDown={() => setRewardsOpen(false)}>
@@ -479,6 +701,7 @@ export default function HomePage() {
                 <div className="parent-tabs" role="tablist">
                   <button className={parentTab === "adventures" ? "active" : ""} onClick={() => setParentTab("adventures")}>Aventuras</button>
                   <button className={parentTab === "rewards" ? "active" : ""} onClick={() => setParentTab("rewards")}>Prêmios</button>
+                  <button className={parentTab === "timers" ? "active" : ""} onClick={() => setParentTab("timers")}>Timers</button>
                   <button className={parentTab === "bonus" ? "active" : ""} onClick={() => setParentTab("bonus")}>Pontos extras</button>
                 </div>
 
@@ -505,6 +728,31 @@ export default function HomePage() {
                       </div>
                     ))}
                     <button className="add-config-button" onClick={() => setRewards((current) => [...current, { id: `premio-${Date.now()}`, title: "Novo prêmio", helper: "Criado pelos responsáveis", price: 100, icon: Gift, accent: "#f2a629" }])}><Plus size={18} /> Novo prêmio</button>
+                  </div>
+                )}
+
+                {parentTab === "timers" && (
+                  <div className="timer-config-panel">
+                    <div className="timer-recommendation"><Clock3 size={22} /><div><strong>Timers só quando ajudam</strong><span>Já recomendamos tempo para dentes, banho, lição, alongamento, exercícios e tablet. As outras tarefas ficam sem relógio.</span></div></div>
+                    <div className="timer-config-list">
+                      {routines.flatMap((routineItem) => routineItem.missions.map((mission) => {
+                        const key = timerKey(routineItem.id, mission);
+                        const value = timerMinutes[key] ?? 0;
+                        return (
+                          <label className="timer-config-row" key={key}>
+                            <span><strong>{mission}</strong><small>{routineItem.label}</small></span>
+                            <span className="timer-input"><input type="number" min="0" max="180" value={value} onChange={(event) => setTimerMinutes((current) => ({ ...current, [key]: Math.max(0, Number(event.target.value)) }))} /> min</span>
+                          </label>
+                        );
+                      }))}
+                      {rewards.filter((item) => item.id === "tablet" || item.timerMinutes).map((item) => (
+                        <label className="timer-config-row reward-timer-row" key={`reward-${item.id}`}>
+                          <span><strong>{item.title}</strong><small>Prêmio com tempo</small></span>
+                          <span className="timer-input"><input type="number" min="0" max="180" value={item.timerMinutes ?? 0} onChange={(event) => setRewards((current) => current.map((reward) => reward.id === item.id ? { ...reward, timerMinutes: Math.max(0, Number(event.target.value)) } : reward))} /> min</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="timer-config-help">Use 0 para deixar a tarefa sem timer.</p>
                   </div>
                 )}
 
