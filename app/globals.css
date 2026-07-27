@@ -54,7 +54,7 @@ input, textarea { font: inherit; }
 }
 
 .world-image.music-world {
-  background-image: url("/kike-music-room.png");
+  background-image: url("/kike-music-room-v1.png");
   background-position: center center;
   transform: scale(1.02);
 }
