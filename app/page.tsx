@@ -119,6 +119,22 @@ const ROUTINES: Routine[] = [
     missions: ["Guardar brinquedos", "Arrumar a mesa", "Regar as plantas", "Organizar o quarto"],
   },
   {
+    id: "estudos",
+    label: "Hora de estudar",
+    helper: "Foco na mesa",
+    icon: BookOpen,
+    accent: "#7c62d8",
+    missions: ["Preparar a mesa", "Revisar a matéria", "Fazer os exercícios", "Guardar o material"],
+  },
+  {
+    id: "refeicoes",
+    label: "Hora da refeição",
+    helper: "Energia no prato",
+    icon: Utensils,
+    accent: "#ef9b2d",
+    missions: ["Lavar as mãos", "Sentar à mesa", "Comer com calma", "Levar o prato"],
+  },
+  {
     id: "piano",
     label: "Treino de piano",
     helper: "Hora da música",
@@ -164,6 +180,9 @@ const RECOMMENDED_TIMERS: Record<string, number> = {
   "manha::Escovar os dentes": 2,
   "banho::Tomar banho": 10,
   "escola::Fazer a lição": 25,
+  "estudos::Revisar a matéria": 15,
+  "estudos::Fazer os exercícios": 25,
+  "refeicoes::Comer com calma": 20,
   "exercicios::Alongar": 5,
   "exercicios::Fazer exercícios": 15,
   "piano::Aquecer os dedos": 5,
@@ -616,8 +635,8 @@ export default function HomePage() {
 
   return (
     <main className="game-shell">
-      <div className={`scene ${routineId === "piano" && !showRoutines ? "music-mode" : ""}`} aria-label={routineId === "piano" && !showRoutines ? "Sala de música da Rotina do Kike" : "Mundo da Rotina do Kike"}>
-        <div className={`world-image ${routineId === "piano" && !showRoutines ? "music-world" : ""}`} aria-hidden="true" />
+      <div className={`scene ${!showRoutines ? "mission-mode" : ""} ${routineId === "piano" && !showRoutines ? "music-mode" : ""}`} aria-label={routineId === "piano" && !showRoutines ? "Sala de música da Rotina do Kike" : `Cenário de ${routine.label}`}>
+        <div className={`world-image ${!showRoutines ? `world-${routineId}` : ""}`} aria-hidden="true" />
         {routineId === "piano" && !showRoutines && (
           <div className="floating-notes" aria-hidden="true">
             <span>♪</span><span>♫</span><span>♩</span><span>♪</span><span>♫</span>

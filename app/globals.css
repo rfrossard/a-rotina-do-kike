@@ -53,11 +53,19 @@ input, textarea { font: inherit; }
   transition: filter .5s ease, opacity .5s ease;
 }
 
-.world-image.music-world {
+.world-image.world-piano {
   background-image: url("/kike-music-room-v1.png");
   background-position: center center;
   transform: scale(1.02);
 }
+
+.world-image.world-banho { background-image: url("/kike-bg-bathroom.png"); background-position: center center; }
+.world-image.world-escola { background-image: url("/kike-bg-school.png"); background-position: center center; }
+.world-image.world-casa { background-image: url("/kike-bg-bedroom.png"); background-position: center center; }
+.world-image.world-estudos { background-image: url("/kike-bg-study.png"); background-position: center center; }
+.world-image.world-manha,
+.world-image.world-refeicoes { background-image: url("/kike-bg-meals.png"); background-position: center center; }
+.world-image.world-exercicios { background-image: url("/kike-bg-soccer.png"); background-position: center center; }
 
 .character-image-layer {
   position: absolute;
@@ -225,6 +233,7 @@ input, textarea { font: inherit; }
 .music-mode .music-label { top: 18%; right: 5%; background: #d95788; }
 .music-mode .character-image-layer { top: 43%; width: min(36%, 270px); }
 .music-mode .scene-shade { background: linear-gradient(to bottom, rgba(75, 34, 18, .12), transparent 25%, transparent 60%, rgba(50, 27, 20, .2)); }
+.mission-mode .world-label { opacity: 0; pointer-events: none; }
 
 .floating-notes { position: absolute; z-index: 3; inset: 12% 4% 32%; overflow: hidden; pointer-events: none; }
 .floating-notes span { position: absolute; color: #ffcf43; font-size: clamp(28px, 6vw, 50px); font-weight: 900; text-shadow: 0 4px 0 rgba(121, 58, 31, .16); animation: note-float 3.8s ease-in-out infinite; }
