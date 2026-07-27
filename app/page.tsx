@@ -345,16 +345,7 @@ export default function HomePage() {
   }, [timerIsRunning]);
 
   useEffect(() => {
-    fetch("/api/parent-auth")
-      .then((response) => response.json())
-      .then((data: { authenticated?: boolean }) => {
-        if (data.authenticated) {
-          setParentStep("dashboard");
-          setParentMessage("Sessão de responsável restaurada");
-          void loadApprovals();
-        }
-      })
-      .catch(() => undefined);
+    fetch("/api/parent-auth", { method: "DELETE" }).catch(() => undefined);
 
     try {
       const saved = window.localStorage.getItem("kike-game-config");
@@ -661,6 +652,21 @@ export default function HomePage() {
     }
   }
 
+  async function openParentMenu() {
+    await fetch("/api/parent-auth", { method: "DELETE" }).catch(() => undefined);
+    setParentStep("pin");
+    setParentPin("");
+    setParentMessage("Digite o PIN de 4 números dos responsáveis");
+    setParentsOpen(true);
+  }
+
+  async function closeParentMenu() {
+    await fetch("/api/parent-auth", { method: "DELETE" }).catch(() => undefined);
+    setParentsOpen(false);
+    setParentStep("pin");
+    setParentPin("");
+  }
+
   async function loadApprovals() {
     try {
       const response = await fetch("/api/approvals");
@@ -790,7 +796,7 @@ export default function HomePage() {
           <button className="round-button reward-nav-button" onClick={() => setRewardsOpen(true)} aria-label="Abrir loja de recompensas">
             <Gift size={22} />
           </button>
-          <button className="round-button" onClick={() => setParentsOpen(true)} aria-label="Área dos responsáveis">
+          <button className="round-button" onClick={() => void openParentMenu()} aria-label="Área dos responsáveis">
             <Settings size={22} />
           </button>
         </header>
@@ -1062,15 +1068,15 @@ export default function HomePage() {
       )}
 
       {parentsOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setParentsOpen(false)}>
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => void closeParentMenu()}>
           <section className={`game-modal parents-modal ${parentStep === "dashboard" ? "parents-dashboard" : ""}`} role="dialog" aria-modal="true" aria-labelledby="parents-title" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => setParentsOpen(false)} aria-label="Fechar"><X /></button>
+            <button className="modal-close" onClick={() => void closeParentMenu()} aria-label="Fechar"><X /></button>
             <span className="eyebrow">ÁREA DOS RESPONSÁVEIS</span>
             {parentStep === "pin" && (
               <div className="parent-auth">
                 <h2 id="parents-title">Entrar como responsável</h2>
                 <div className="auth-illustration"><ShieldCheck size={38} /></div>
-                <p>Use o PIN de 4 números dos responsáveis. Depois de entrar, este aparelho fica autorizado por 30 dias.</p>
+                <p>Use o PIN de 4 números dos responsáveis. Ele será solicitado novamente sempre que este menu for aberto.</p>
                 <label>PIN dos responsáveis<input className="code-input" type="password" inputMode="numeric" autoComplete="current-password" maxLength={4} value={parentPin} onChange={(event) => setParentPin(event.target.value.replace(/\D/g, ""))} onKeyDown={(event) => { if (event.key === "Enter") void loginParent(); }} placeholder="••••" autoFocus /></label>
                 <button className="primary-action" onClick={loginParent}>ENTRAR</button>
                 <span className="form-message">{parentMessage}</span>

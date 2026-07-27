@@ -1,5 +1,5 @@
 export const PARENT_COOKIE_NAME = "kike_parent_session";
-export const PARENT_SESSION_DURATION_SECONDS = 30 * 24 * 60 * 60;
+export const PARENT_SESSION_DURATION_SECONDS = 30 * 60;
 
 function sessionSecret() {
   return process.env.PARENT_SESSION_SECRET
