@@ -8,3 +8,9 @@ export const activityEvents = sqliteTable("activity_events", {
   day: text("day").notNull(),
   occurredAt: text("occurred_at").notNull(),
 });
+
+export const gameState = sqliteTable("game_state", {
+  id: integer("id").primaryKey(),
+  balance: integer("balance").notNull().default(245),
+  updatedAt: text("updated_at").notNull(),
+});

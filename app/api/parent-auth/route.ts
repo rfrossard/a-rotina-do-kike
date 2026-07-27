@@ -1,3 +1,10 @@
+import {
+  clearParentSessionCookie,
+  createParentSessionCookie,
+  hasParentSessionSecret,
+  readParentSession,
+} from "../../../lib/parent-session";
+
 type AttemptRecord = {
   count: number;
   blockedUntil: number;
@@ -10,15 +17,8 @@ const globalAuth = globalThis as typeof globalThis & {
 const attempts = globalAuth.__kikeParentAttempts ?? new Map<string, AttemptRecord>();
 globalAuth.__kikeParentAttempts = attempts;
 
-const COOKIE_NAME = "kike_parent_session";
-const SESSION_DURATION_SECONDS = 30 * 24 * 60 * 60;
 const MAX_ATTEMPTS = 5;
 const BLOCK_DURATION_MS = 15 * 60 * 1000;
-
-function sessionSecret() {
-  return process.env.PARENT_SESSION_SECRET
-    ?? (process.env.NODE_ENV !== "production" ? "rotina-do-kike-local-development" : "");
-}
 
 function parentPin() {
   return process.env.PARENT_ACCESS_PIN
@@ -29,38 +29,6 @@ function visitorKey(request: Request) {
   return request.headers.get("cf-connecting-ip")
     ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     ?? "local";
-}
-
-async function signSession(expiresAt: number) {
-  const payload = `parent|${expiresAt}`;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(sessionSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-  const encoded = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replaceAll("=", "");
-  return `${expiresAt}.${encoded}`;
-}
-
-async function readSession(request: Request) {
-  const value = request.headers
-    .get("cookie")
-    ?.split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${COOKIE_NAME}=`))
-    ?.slice(COOKIE_NAME.length + 1);
-
-  if (!value || !sessionSecret()) return false;
-  const [expiresText] = value.split(".");
-  const expiresAt = Number(expiresText);
-  if (!expiresAt || expiresAt < Date.now()) return false;
-  return await signSession(expiresAt) === value;
 }
 
 async function pinsMatch(received: string, expected: string) {
@@ -75,7 +43,7 @@ async function pinsMatch(received: string, expected: string) {
 }
 
 export async function GET(request: Request) {
-  return Response.json({ authenticated: await readSession(request) });
+  return Response.json({ authenticated: await readParentSession(request) });
 }
 
 export async function DELETE() {
@@ -83,7 +51,7 @@ export async function DELETE() {
     { ok: true },
     {
       headers: {
-        "Set-Cookie": `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`,
+        "Set-Cookie": clearParentSessionCookie(),
       },
     },
   );
@@ -91,7 +59,7 @@ export async function DELETE() {
 
 export async function POST(request: Request) {
   const configuredPin = parentPin();
-  if (!configuredPin || !sessionSecret()) {
+  if (!configuredPin || !hasParentSessionSecret()) {
     return Response.json(
       { message: "O acesso dos responsáveis ainda não foi configurado" },
       { status: 503 },
@@ -130,15 +98,11 @@ export async function POST(request: Request) {
   }
 
   attempts.delete(key);
-  const expiresAt = Date.now() + SESSION_DURATION_SECONDS * 1000;
-  const session = await signSession(expiresAt);
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-
   return Response.json(
     { ok: true },
     {
       headers: {
-        "Set-Cookie": `${COOKIE_NAME}=${session}; Path=/; HttpOnly; SameSite=Strict${secure}; Max-Age=${SESSION_DURATION_SECONDS}`,
+        "Set-Cookie": await createParentSessionCookie(),
       },
     },
   );

@@ -426,6 +426,13 @@ input, textarea { font: inherit; }
 .bonus-panel > p { color: #68788d; }
 .bonus-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin: 13px 0 18px; }
 .bonus-grid button { display: flex; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 15px; padding: 13px 7px; color: #926000; background: #fff0b7; font-weight: 900; cursor: pointer; }
+.balance-editor { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px; margin: 12px 0 18px; padding: 13px; border: 2px solid #d8e9e6; border-radius: 17px; background: #f7fbfa; }
+.balance-editor label { display: grid; gap: 5px; color: #51657d; font-size: 11px; font-weight: 900; }
+.balance-editor input { width: 100%; border: 2px solid #d7e5e3; border-radius: 11px; padding: 9px 10px; color: var(--ink); background: white; }
+.balance-editor button { display: flex; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 12px; padding: 11px 13px; color: white; background: #16a8b4; font-size: 11px; font-weight: 900; cursor: pointer; }
+.balance-editor small { grid-column: 1 / -1; color: #748293; font-size: 10px; }
+.danger-option { color: #a44848; }
+.danger-option svg { color: #c54f4f; }
 .timer-config-panel { max-height: 54svh; overflow-y: auto; padding: 2px 4px 8px; }
 .timer-recommendation { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 12px; padding: 13px; border-radius: 17px; color: #175c68; background: #e4f8f7; }
 .timer-recommendation svg { flex: 0 0 auto; margin-top: 2px; }
@@ -482,6 +489,8 @@ input, textarea { font: inherit; }
   .calendar-day { padding: 5px 1px; border-radius: 11px; }
   .reward-config-card { grid-template-columns: 1fr 86px auto; }
   .bonus-grid { grid-template-columns: repeat(2, 1fr); }
+  .balance-editor { grid-template-columns: 1fr; align-items: stretch; }
+  .balance-editor small { grid-column: auto; }
   .avatar-choices { grid-template-columns: repeat(4, 1fr); }
 }
 

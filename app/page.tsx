@@ -166,6 +166,7 @@ export default function HomePage() {
   const [routineId, setRoutineId] = useState("manha");
   const [completed, setCompleted] = useState<Record<string, string[]>>({});
   const [stars, setStars] = useState(245);
+  const [balanceDraft, setBalanceDraft] = useState("245");
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [rewardsOpen, setRewardsOpen] = useState(false);
   const [parentsOpen, setParentsOpen] = useState(false);
@@ -260,6 +261,7 @@ export default function HomePage() {
       const data = await response.json() as {
         daily?: Array<{ day: string; earned: number | string; spent: number | string }>;
         activities?: Array<{ activity: string; count: number | string }>;
+        balance?: number | string;
       };
       setDailyProgress((data.daily ?? []).map((item) => ({
         day: item.day,
@@ -270,6 +272,11 @@ export default function HomePage() {
         activity: item.activity,
         count: Number(item.count),
       })));
+      if (data.balance !== undefined) {
+        const balance = Number(data.balance);
+        setStars(balance);
+        setBalanceDraft(String(balance));
+      }
     } catch {
       // The game remains usable if the history service is temporarily offline.
     }
@@ -277,11 +284,16 @@ export default function HomePage() {
 
   async function recordProgress(eventType: "mission" | "bonus" | "spent", points: number, activity?: string) {
     try {
-      await fetch("/api/progress", {
+      const response = await fetch("/api/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventType, points, activity, day: localDay() }),
       });
+      const data = await response.json() as { balance?: number };
+      if (data.balance !== undefined) {
+        setStars(data.balance);
+        setBalanceDraft(String(data.balance));
+      }
       await loadProgress();
     } catch {
       // Progress can continue locally while a history write retries on the next action.
@@ -325,7 +337,6 @@ export default function HomePage() {
 
   function resetDay() {
     setCompleted({});
-    setStars(245);
     setAction("wave");
   }
 
@@ -399,6 +410,44 @@ export default function HomePage() {
     void recordProgress("bonus", amount, "Atividade extra");
     setParentMessage(`${amount} estrelas extras adicionadas`);
     setAction("celebrate");
+  }
+
+  async function saveBalance() {
+    const balance = Math.round(Number(balanceDraft));
+    if (!Number.isFinite(balance) || balance < 0 || balance > 999999) {
+      setParentMessage("Informe um saldo entre 0 e 999.999");
+      return;
+    }
+    setParentMessage("Corrigindo saldo...");
+    try {
+      const response = await fetch("/api/progress", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ balance }),
+      });
+      const data = await response.json() as { balance?: number; message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível corrigir o saldo");
+      setStars(data.balance ?? balance);
+      setBalanceDraft(String(data.balance ?? balance));
+      setParentMessage("Saldo corrigido sem alterar o calendário");
+    } catch (error) {
+      setParentMessage(error instanceof Error ? error.message : "Não foi possível corrigir o saldo");
+    }
+  }
+
+  async function clearProgressHistory() {
+    if (!window.confirm("Apagar todo o histórico do calendário e do gráfico? O saldo atual será mantido.")) return;
+    setParentMessage("Limpando histórico...");
+    try {
+      const response = await fetch("/api/progress", { method: "DELETE" });
+      const data = await response.json() as { message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível limpar o histórico");
+      setDailyProgress([]);
+      setActivityTotals([]);
+      setParentMessage("Histórico de testes apagado. O saldo foi mantido.");
+    } catch (error) {
+      setParentMessage(error instanceof Error ? error.message : "Não foi possível limpar o histórico");
+    }
   }
 
   async function logoutParent() {
@@ -759,11 +808,17 @@ export default function HomePage() {
                 {parentTab === "bonus" && (
                   <div className="bonus-panel">
                     <div className="reward-card"><Sparkles size={28} /><div><span>Saldo atual do Kike</span><strong>{stars} estrelas</strong></div></div>
+                    <div className="balance-editor">
+                      <label>Corrigir saldo atual<input type="number" min="0" max="999999" inputMode="numeric" value={balanceDraft} onChange={(event) => setBalanceDraft(event.target.value)} /></label>
+                      <button onClick={saveBalance}><Save size={17} /> SALVAR SALDO</button>
+                      <small>Esta correção não aparece como ganho ou gasto no calendário.</small>
+                    </div>
                     <p>Premie uma atividade extra que não estava prevista na rotina.</p>
                     <div className="bonus-grid">
                       {[5, 10, 25, 50].map((amount) => <button key={amount} onClick={() => awardBonus(amount)}><Star size={20} fill="currentColor" /> +{amount}</button>)}
                     </div>
                     <button className="parent-option" onClick={resetDay}><RotateCcw /> <span><strong>Recomeçar o dia</strong><small>Zera o progresso diário</small></span></button>
+                    <button className="parent-option danger-option" onClick={clearProgressHistory}><Trash2 /> <span><strong>Limpar histórico de testes</strong><small>Apaga calendário e gráfico, mas mantém o saldo atual</small></span></button>
                   </div>
                 )}
                 <button className="save-config" onClick={saveConfiguration}><Save size={18} /> SALVAR ALTERAÇÕES</button>
