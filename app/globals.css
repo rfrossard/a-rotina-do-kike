@@ -375,6 +375,11 @@ input, textarea { font: inherit; }
 .avatar-choice-image { display: block; width: 100%; aspect-ratio: 0.824; margin-bottom: 4px; background-image: url("/kike-avatar-sprites-20-fitted.png"); background-size: 500% 400%; background-repeat: no-repeat; }
 .avatar-choice-label { display: block; overflow: hidden; font-size: 10px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
 .avatar-price { position: absolute; top: 5px; right: 5px; display: flex !important; align-items: center; gap: 2px; padding: 3px 5px; border-radius: 8px; color: white; background: rgba(25, 50, 80, .9); font-size: 9px !important; }
+.avatar-confirmation { position: sticky; bottom: -24px; margin: 10px -3px -3px; padding: 10px 3px 3px; background: linear-gradient(transparent, var(--cream) 22%); }
+.avatar-confirmation .primary-action { margin-top: 8px; font-size: 20px; }
+.avatar-confirmation .primary-action:disabled { cursor: not-allowed; filter: grayscale(.35); opacity: .58; }
+.avatar-confirm-price { display: flex; align-items: center; justify-content: center; gap: 5px; color: #65758b; font-size: 12px; font-weight: 800; }
+.avatar-confirm-price strong { display: flex; align-items: center; gap: 3px; color: #b66d00; }
 .primary-action { width: 100%; margin-top: 18px; padding: 13px 18px 11px; border: 0; border-radius: 18px; color: white; background: linear-gradient(#ffd33f, #ffad1c); box-shadow: inset 0 -5px 0 rgba(190, 91, 5, .2), 0 7px 0 #df8a12; font: 800 24px/1 var(--font-display); cursor: pointer; }
 .reward-card { display: flex; align-items: center; gap: 13px; padding: 16px; margin-bottom: 13px; border-radius: 20px; color: #713d00; background: #fff0b7; }
 .reward-card span, .reward-card strong { display: block; }

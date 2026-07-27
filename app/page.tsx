@@ -231,12 +231,15 @@ export default function HomePage() {
   const [parentMessage, setParentMessage] = useState("Digite o PIN de 4 números dos responsáveis");
   const [parentTab, setParentTab] = useState<"adventures" | "rewards" | "timers" | "bonus">("adventures");
   const [avatarId, setAvatarId] = useState<(typeof AVATARS)[number]["id"]>("classico");
+  const [previewAvatarId, setPreviewAvatarId] = useState<(typeof AVATARS)[number]["id"]>("classico");
   const [unlockedAvatars, setUnlockedAvatars] = useState<Set<string>>(() => new Set(STARTER_AVATARS));
   const [avatarMessage, setAvatarMessage] = useState("5 visuais disponíveis · 15 para desbloquear");
+  const [avatarPurchasePending, setAvatarPurchasePending] = useState(false);
   const [action, setAction] = useState<"idle" | "wave" | "celebrate">("wave");
   const [showRoutines, setShowRoutines] = useState(true);
   const routine = useMemo(() => routines.find((item) => item.id === routineId) ?? routines[0], [routineId, routines]);
   const selectedAvatar = AVATARS.find((item) => item.id === avatarId) ?? AVATARS[0];
+  const previewAvatar = AVATARS.find((item) => item.id === previewAvatarId) ?? AVATARS[0];
   const completedNow = completed[routine.id] ?? [];
   const totalDone = Object.values(completed).reduce((sum, list) => sum + list.length, 0);
   const maxActivityCount = Math.max(1, ...activityTotals.map((item) => Number(item.count)));
@@ -367,6 +370,11 @@ export default function HomePage() {
           if (config.missionPoints) setMissionPoints(config.missionPoints);
           if (config.timerMinutes) setTimerMinutes({ ...RECOMMENDED_TIMERS, ...config.timerMinutes });
         });
+      }
+      const savedUnlocks = JSON.parse(window.localStorage.getItem("kike-unlocked-avatars") ?? "[]") as string[];
+      const validUnlocks = savedUnlocks.filter((id) => AVATARS.some((avatar) => avatar.id === id));
+      if (validUnlocks.length) {
+        window.queueMicrotask(() => setUnlockedAvatars(new Set([...STARTER_AVATARS, ...validUnlocks])));
       }
     } catch {
       // Keep the safe defaults when a local draft cannot be read.
@@ -510,28 +518,75 @@ export default function HomePage() {
     setAction("wave");
   }
 
-  function chooseAvatar(item: (typeof AVATARS)[number]) {
+  function openAvatarPicker() {
+    setPreviewAvatarId(avatarId);
+    setAvatarMessage("Toque em um visual para experimentar antes de confirmar");
+    setAvatarOpen(true);
+  }
+
+  function previewAvatarChoice(item: (typeof AVATARS)[number]) {
+    setPreviewAvatarId(item.id);
     if (unlockedAvatars.has(item.id)) {
-      setAvatarId(item.id);
-      setAvatarMessage(`${item.label} selecionado`);
+      setAvatarMessage(item.id === avatarId ? `${item.label} está em uso` : `${item.label} disponível para usar`);
       return;
     }
     if (stars < item.price) {
       setAvatarMessage(`Faltam ${item.price - stars} estrelas para desbloquear ${item.label}`);
       return;
     }
-    setStars((value) => value - item.price);
-    void recordProgress("spent", item.price, `Avatar: ${item.label}`);
-    setUnlockedAvatars((current) => new Set([...current, item.id]));
-    setAvatarId(item.id);
-    setAvatarMessage(`${item.label} desbloqueado!`);
-    setAction("celebrate");
+    setAvatarMessage(`Confira o visual. Desbloquear custa ${item.price} estrelas.`);
+  }
+
+  async function confirmAvatarChoice() {
+    const item = previewAvatar;
+    if (unlockedAvatars.has(item.id)) {
+      setAvatarId(item.id);
+      setAvatarMessage(`${item.label} está em uso`);
+      setAction("celebrate");
+      return;
+    }
+    if (stars < item.price) {
+      setAvatarMessage(`Faltam ${item.price - stars} estrelas para desbloquear ${item.label}`);
+      return;
+    }
+
+    setAvatarPurchasePending(true);
+    setAvatarMessage("Confirmando o desbloqueio…");
+    try {
+      const response = await fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "spent",
+          points: item.price,
+          activity: `Avatar: ${item.label}`,
+          day: localDay(),
+        }),
+      });
+      const data = await response.json() as { balance?: number; message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível desbloquear");
+
+      const nextUnlocks = new Set([...unlockedAvatars, item.id]);
+      setUnlockedAvatars(nextUnlocks);
+      window.localStorage.setItem("kike-unlocked-avatars", JSON.stringify([...nextUnlocks]));
+      setAvatarId(item.id);
+      setStars(Number(data.balance ?? stars - item.price));
+      setBalanceDraft(String(data.balance ?? stars - item.price));
+      setAvatarMessage(`${item.label} desbloqueado! ${item.price} estrelas foram usadas.`);
+      setAction("celebrate");
+      await loadProgress();
+    } catch (error) {
+      setAvatarMessage(error instanceof Error ? error.message : "Não foi possível desbloquear");
+      await loadProgress();
+    } finally {
+      setAvatarPurchasePending(false);
+    }
   }
 
   function redeemReward(item: Reward) {
     if (item.action === "avatars") {
       setRewardsOpen(false);
-      setAvatarOpen(true);
+      openAvatarPicker();
       return;
     }
     if (stars < item.price) {
@@ -664,7 +719,7 @@ export default function HomePage() {
             <div className="progress-track"><span style={{ width: `${Math.min((totalDone / 12) * 100, 100)}%` }} /></div>
             <span>{totalDone}/12</span>
           </button>
-          <button className="round-button" onClick={() => setAvatarOpen(true)} aria-label="Criar ou editar avatar">
+          <button className="round-button" onClick={openAvatarPicker} aria-label="Criar ou editar avatar">
             <Palette size={22} />
           </button>
           <button className="round-button reward-nav-button" onClick={() => setRewardsOpen(true)} aria-label="Abrir loja de recompensas">
@@ -888,13 +943,13 @@ export default function HomePage() {
             <div className="avatar-preview">
               <div
                 className="avatar-sprite-preview"
-                style={{ backgroundPosition: spritePosition(selectedAvatar.col, selectedAvatar.row) }}
+                style={{ backgroundPosition: spritePosition(previewAvatar.col, previewAvatar.row) }}
                 role="img"
-                aria-label={`${selectedAvatar.label}: ${selectedAvatar.detail}`}
+                aria-label={`${previewAvatar.label}: ${previewAvatar.detail}`}
               />
               <div className="avatar-description">
-                <strong>{selectedAvatar.label}</strong>
-                <span>{selectedAvatar.detail}</span>
+                <strong>{previewAvatar.label}</strong>
+                <span>{previewAvatar.detail}</span>
               </div>
             </div>
             <div className="avatar-balance" aria-live="polite">
@@ -905,9 +960,9 @@ export default function HomePage() {
               {AVATARS.map((item) => (
                 <button
                   key={item.id}
-                  className={`${item.id === avatarId ? "selected" : ""} ${unlockedAvatars.has(item.id) ? "" : "locked"}`}
-                  onClick={() => chooseAvatar(item)}
-                  aria-pressed={item.id === avatarId}
+                  className={`${item.id === previewAvatarId ? "selected" : ""} ${unlockedAvatars.has(item.id) ? "" : "locked"}`}
+                  onClick={() => previewAvatarChoice(item)}
+                  aria-pressed={item.id === previewAvatarId}
                   aria-label={`${item.label}: ${item.detail}${unlockedAvatars.has(item.id) ? "" : `, desbloquear por ${item.price} estrelas`}`}
                 >
                   <span
@@ -919,7 +974,24 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
-            <button className="primary-action" onClick={() => { setAvatarOpen(false); setAction("celebrate"); }}>PRONTO!</button>
+            <div className="avatar-confirmation">
+              {!unlockedAvatars.has(previewAvatar.id) && (
+                <span className="avatar-confirm-price">
+                  Saldo após desbloquear: <strong><Star size={14} fill="currentColor" /> {Math.max(0, stars - previewAvatar.price)}</strong>
+                </span>
+              )}
+              <button
+                className="primary-action"
+                disabled={avatarPurchasePending || (!unlockedAvatars.has(previewAvatar.id) && stars < previewAvatar.price)}
+                onClick={() => void confirmAvatarChoice()}
+              >
+                {avatarPurchasePending
+                  ? "DESBLOQUEANDO…"
+                  : unlockedAvatars.has(previewAvatar.id)
+                    ? previewAvatar.id === avatarId ? "VISUAL EM USO" : "USAR ESTE VISUAL"
+                    : `DESBLOQUEAR POR ${previewAvatar.price}`}
+              </button>
+            </div>
           </section>
         </div>
       )}

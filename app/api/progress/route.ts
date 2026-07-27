@@ -102,8 +102,31 @@ export async function POST(request: Request) {
     }
 
     const db = await ensureSchema();
-    const delta = eventType === "spent" ? -points : points;
     const now = new Date().toISOString();
+
+    if (eventType === "spent") {
+      const [debit] = await db.batch([
+        db.prepare(`
+          UPDATE game_state
+          SET balance = balance - ?, updated_at = ?
+          WHERE id = 1 AND balance >= ?
+          RETURNING balance
+        `).bind(points, now, points),
+        db.prepare(`
+          INSERT INTO activity_events (id, event_type, activity, points, day, occurred_at)
+          SELECT ?, 'spent', ?, ?, ?, ?
+          WHERE changes() > 0
+        `).bind(crypto.randomUUID(), activity, points, day, now),
+      ]);
+      const remainingBalance = debit.results[0] as { balance?: number } | undefined;
+
+      if (remainingBalance?.balance === undefined) {
+        return Response.json({ message: "Saldo insuficiente para este desbloqueio" }, { status: 409 });
+      }
+
+      return Response.json({ ok: true, balance: Number(remainingBalance.balance) });
+    }
+
     await db.batch([
       db.prepare(`
         INSERT INTO activity_events (id, event_type, activity, points, day, occurred_at)
@@ -113,7 +136,7 @@ export async function POST(request: Request) {
         UPDATE game_state
         SET balance = MAX(0, balance + ?), updated_at = ?
         WHERE id = 1
-      `).bind(delta, now),
+      `).bind(points, now),
     ]);
     const balance = await db.prepare("SELECT balance FROM game_state WHERE id = 1").first<{ balance: number }>();
 
