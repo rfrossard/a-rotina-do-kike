@@ -79,6 +79,16 @@ type ActivityApproval = {
   requested_day: string;
   requested_at: string;
 };
+type EquipmentCategory = "ball" | "hand" | "music" | "wearable" | "toy";
+type EquipmentItem = {
+  id: string;
+  label: string;
+  category: EquipmentCategory;
+  sheet: "a" | "b";
+  col: number;
+  row: number;
+  price: number;
+};
 
 type ScreenWakeLock = {
   released: boolean;
@@ -203,6 +213,44 @@ const COMPANIONS = [
 
 const STARTER_COMPANIONS = new Set(COMPANIONS.slice(0, 5).map((companion) => companion.id));
 
+const EQUIPMENT_NAMES_A = [
+  "Bola de futebol", "Bola de basquete", "Bola de vôlei", "Bola de tênis", "Bola de rugby",
+  "Bola de beisebol", "Bola de boliche", "Bola de praia", "Bola de queimada", "Bola de handebol",
+  "Bumerangue", "Pipa", "Tablet", "Microfone", "Fones de ouvido",
+  "Violão", "Teclado musical", "Pandeiro", "Tambor", "Trompete",
+  "Flauta", "Violino", "Ukulele", "Maracas", "Gaita",
+  "Skate", "Patinete", "Corda de pular", "Disco voador", "Bambolê",
+] as const;
+const EQUIPMENT_NAMES_B = [
+  "Binóculos", "Telescópio", "Lupa", "Câmera", "Lanterna",
+  "Mochila", "Lancheira", "Garrafa", "Guarda-chuva", "Óculos escuros",
+  "Chapéu pirata", "Coroa", "Chapéu de mago", "Capacete espacial", "Capa de herói",
+  "Kit de pintura", "Giz de cera", "Cubo colorido", "Blocos de montar", "Xadrez",
+  "Robô", "Foguete", "Carrinho", "Trenzinho", "Dinossauro",
+  "Kit de jardinagem", "Kit de chef", "Kit de médico", "Kit de ciências", "Barraca",
+] as const;
+
+const EQUIPMENT: EquipmentItem[] = [
+  ...EQUIPMENT_NAMES_A.map((label, index) => ({
+    id: label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    label,
+    category: (index < 10 ? "ball" : index < 15 ? "hand" : index < 25 ? "music" : "toy") as EquipmentCategory,
+    sheet: "a" as const,
+    col: index % 5,
+    row: Math.floor(index / 5),
+    price: index === 0 ? 0 : 50 + index * 10,
+  })),
+  ...EQUIPMENT_NAMES_B.map((label, index) => ({
+    id: label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    label,
+    category: (index < 10 ? "hand" : index < 15 ? "wearable" : "toy") as EquipmentCategory,
+    sheet: "b" as const,
+    col: index % 5,
+    row: Math.floor(index / 5),
+    price: 180 + index * 10,
+  })),
+];
+
 const DEFAULT_REWARDS: Reward[] = [
   { id: "avatars", title: "Novos avatares", helper: "Desbloquear visuais do Kike", price: 80, icon: Palette, accent: "#8b65d8", action: "avatars" },
   { id: "tablet", title: "30 min no tablet", helper: "Tempo extra aprovado pelos pais", price: 150, icon: Timer, accent: "#3a9ee8", timerMinutes: 30 },
@@ -227,6 +275,10 @@ function spritePosition(col: number, row: number) {
   return `${col * 25}% ${row * 33.333}%`;
 }
 
+function equipmentPosition(col: number, row: number) {
+  return `${col * 25}% ${row * 20}%`;
+}
+
 function localDay(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -247,6 +299,7 @@ export default function HomePage() {
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [characterTab, setCharacterTab] = useState<"kike" | "companion">("kike");
   const [rewardsOpen, setRewardsOpen] = useState(false);
+  const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [parentsOpen, setParentsOpen] = useState(false);
   const [rewards, setRewards] = useState<Reward[]>(DEFAULT_REWARDS);
   const [rewardMessage, setRewardMessage] = useState("Escolha uma recompensa");
@@ -275,6 +328,12 @@ export default function HomePage() {
   const [companionId, setCompanionId] = useState<(typeof COMPANIONS)[number]["id"]>("yorkie-classica");
   const [previewCompanionId, setPreviewCompanionId] = useState<(typeof COMPANIONS)[number]["id"]>("yorkie-classica");
   const [unlockedCompanions, setUnlockedCompanions] = useState<Set<string>>(() => new Set(STARTER_COMPANIONS));
+  const [unlockedEquipment, setUnlockedEquipment] = useState<Set<string>>(() => new Set(["bola-de-futebol"]));
+  const [equippedItems, setEquippedItems] = useState<string[]>(["bola-de-futebol"]);
+  const [previewEquipmentId, setPreviewEquipmentId] = useState("bola-de-futebol");
+  const [equipmentFilter, setEquipmentFilter] = useState<"all" | EquipmentCategory>("all");
+  const [equipmentMessage, setEquipmentMessage] = useState("Equipe até dois itens");
+  const [equipmentPurchasePending, setEquipmentPurchasePending] = useState(false);
   const [action, setAction] = useState<"idle" | "wave" | "celebrate">("wave");
   const [showRoutines, setShowRoutines] = useState(true);
   const routine = useMemo(() => routines.find((item) => item.id === routineId) ?? routines[0], [routineId, routines]);
@@ -282,6 +341,8 @@ export default function HomePage() {
   const previewAvatar = AVATARS.find((item) => item.id === previewAvatarId) ?? AVATARS[0];
   const selectedCompanion = COMPANIONS.find((item) => item.id === companionId) ?? COMPANIONS[0];
   const previewCompanion = COMPANIONS.find((item) => item.id === previewCompanionId) ?? COMPANIONS[0];
+  const previewEquipment = EQUIPMENT.find((item) => item.id === previewEquipmentId) ?? EQUIPMENT[0];
+  const activeEquipment = equippedItems.map((id) => EQUIPMENT.find((item) => item.id === id)).filter((item): item is EquipmentItem => Boolean(item));
   const completedNow = completed[routine.id] ?? [];
   const totalDone = Object.values(completed).reduce((sum, list) => sum + list.length, 0);
   const maxActivityCount = Math.max(1, ...activityTotals.map((item) => Number(item.count)));
@@ -413,6 +474,12 @@ export default function HomePage() {
       if (validCompanionUnlocks.length) {
         window.queueMicrotask(() => setUnlockedCompanions(new Set([...STARTER_COMPANIONS, ...validCompanionUnlocks])));
       }
+      const savedEquipmentUnlocks = JSON.parse(window.localStorage.getItem("kike-unlocked-equipment") ?? "[]") as string[];
+      const validEquipmentUnlocks = savedEquipmentUnlocks.filter((id) => EQUIPMENT.some((item) => item.id === id));
+      if (validEquipmentUnlocks.length) window.queueMicrotask(() => setUnlockedEquipment(new Set(["bola-de-futebol", ...validEquipmentUnlocks])));
+      const savedEquipped = JSON.parse(window.localStorage.getItem("kike-equipped-items") ?? "[]") as string[];
+      const validEquipped = savedEquipped.filter((id) => EQUIPMENT.some((item) => item.id === id)).slice(-2);
+      if (validEquipped.length) window.queueMicrotask(() => setEquippedItems(validEquipped));
     } catch {
       // Keep the safe defaults when a local draft cannot be read.
     }
@@ -703,6 +770,65 @@ export default function HomePage() {
     }
   }
 
+  function equipItem(item: EquipmentItem) {
+    setEquippedItems((current) => {
+      if (current.includes(item.id)) {
+        const next = current.filter((id) => id !== item.id);
+        window.localStorage.setItem("kike-equipped-items", JSON.stringify(next));
+        setEquipmentMessage(`${item.label} foi guardado`);
+        return next;
+      }
+      const withoutSameCategory = current.filter((id) => EQUIPMENT.find((candidate) => candidate.id === id)?.category !== item.category);
+      const next = [...withoutSameCategory, item.id].slice(-2);
+      window.localStorage.setItem("kike-equipped-items", JSON.stringify(next));
+      setEquipmentMessage(`${item.label} equipado${withoutSameCategory.length !== current.length ? " no lugar do item anterior" : ""}`);
+      return next;
+    });
+  }
+
+  function previewEquipmentChoice(item: EquipmentItem) {
+    setPreviewEquipmentId(item.id);
+    if (unlockedEquipment.has(item.id)) {
+      setEquipmentMessage(equippedItems.includes(item.id) ? `${item.label} está equipado` : `${item.label} disponível para equipar`);
+    } else {
+      setEquipmentMessage(stars < item.price ? `Faltam ${item.price - stars} estrelas` : `Desbloquear custa ${item.price} estrelas`);
+    }
+  }
+
+  async function confirmEquipmentChoice() {
+    const item = previewEquipment;
+    if (unlockedEquipment.has(item.id)) {
+      equipItem(item);
+      return;
+    }
+    if (stars < item.price) {
+      setEquipmentMessage(`Faltam ${item.price - stars} estrelas para desbloquear`);
+      return;
+    }
+    setEquipmentPurchasePending(true);
+    try {
+      const response = await fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventType: "spent", points: item.price, activity: `Equipamento: ${item.label}`, day: localDay() }),
+      });
+      const data = await response.json() as { balance?: number; message?: string };
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível desbloquear");
+      const nextUnlocks = new Set([...unlockedEquipment, item.id]);
+      setUnlockedEquipment(nextUnlocks);
+      window.localStorage.setItem("kike-unlocked-equipment", JSON.stringify([...nextUnlocks]));
+      setStars(Number(data.balance ?? stars - item.price));
+      setBalanceDraft(String(data.balance ?? stars - item.price));
+      equipItem(item);
+      setEquipmentMessage(`${item.label} desbloqueado e equipado!`);
+      await loadProgress();
+    } catch (error) {
+      setEquipmentMessage(error instanceof Error ? error.message : "Não foi possível desbloquear");
+    } finally {
+      setEquipmentPurchasePending(false);
+    }
+  }
+
   function redeemReward(item: Reward) {
     if (item.action === "avatars") {
       setRewardsOpen(false);
@@ -881,6 +1007,18 @@ export default function HomePage() {
           aria-label={`Cachorrinha Yorkshire Terrier ${selectedCompanion.label} acompanhando o Kike`}
           style={{ backgroundPosition: spritePosition(selectedCompanion.col, selectedCompanion.row) }}
         />
+        {activeEquipment.map((item, index) => (
+          <div
+            className={`equipment-scene-layer equipment-slot-${index + 1}`}
+            key={item.id}
+            role="img"
+            aria-label={`${item.label} equipado`}
+            style={{
+              backgroundImage: `url("/kike-equipment-sprites-${item.sheet}.png")`,
+              backgroundPosition: equipmentPosition(item.col, item.row),
+            }}
+          />
+        ))}
         <div className="scene-shade" aria-hidden="true" />
 
         <header className="top-hud">
@@ -1089,6 +1227,11 @@ export default function HomePage() {
               </div>
               <div className="store-balance"><Star size={20} fill="currentColor" /> {stars}</div>
             </div>
+            <button className="equipment-store-entry" onClick={() => { setRewardsOpen(false); setEquipmentOpen(true); }}>
+              <span className="equipment-entry-preview" aria-hidden="true" />
+              <span><strong>Equipamentos e skins</strong><small>60 itens · equipe no máximo 2</small></span>
+              <ChevronRight />
+            </button>
             <div className="reward-grid">
               {rewards.map((item) => {
                 const Icon = item.icon;
@@ -1108,6 +1251,66 @@ export default function HomePage() {
               })}
             </div>
             <p className="parent-confirm-note"><ShieldCheck size={17} /> Prêmios do mundo real precisam da confirmação de um responsável.</p>
+          </section>
+        </div>
+      )}
+
+      {equipmentOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setEquipmentOpen(false)}>
+          <section className="game-modal equipment-modal" role="dialog" aria-modal="true" aria-labelledby="equipment-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setEquipmentOpen(false)} aria-label="Fechar"><X /></button>
+            <span className="eyebrow">INVENTÁRIO DE PRÊMIOS</span>
+            <h2 id="equipment-title">Equipamentos e skins</h2>
+            <div className="equipment-summary">
+              <div
+                className="equipment-large-preview"
+                style={{ backgroundImage: `url("/kike-equipment-sprites-${previewEquipment.sheet}.png")`, backgroundPosition: equipmentPosition(previewEquipment.col, previewEquipment.row) }}
+                role="img"
+                aria-label={previewEquipment.label}
+              />
+              <div><strong>{previewEquipment.label}</strong><span>{equipmentMessage}</span><small>{activeEquipment.length}/2 equipados</small></div>
+              <div className="store-balance"><Star size={18} fill="currentColor" /> {stars}</div>
+            </div>
+            <div className="equipment-filters">
+              {([
+                ["all", "Todos"], ["ball", "Bolas"], ["music", "Música"], ["wearable", "Skins"], ["hand", "Aventura"], ["toy", "Brincar"],
+              ] as const).map(([value, label]) => (
+                <button key={value} className={equipmentFilter === value ? "active" : ""} onClick={() => setEquipmentFilter(value)}>{label}</button>
+              ))}
+            </div>
+            <div className="equipment-grid">
+              {EQUIPMENT.filter((item) => equipmentFilter === "all" || item.category === equipmentFilter).map((item) => {
+                const unlocked = unlockedEquipment.has(item.id);
+                const equipped = equippedItems.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    className={`${item.id === previewEquipmentId ? "selected" : ""} ${unlocked ? "" : "locked"} ${equipped ? "equipped" : ""}`}
+                    onClick={() => previewEquipmentChoice(item)}
+                    aria-pressed={item.id === previewEquipmentId}
+                    aria-label={`${item.label}${equipped ? ", equipado" : unlocked ? "" : `, desbloquear por ${item.price} estrelas`}`}
+                  >
+                    <span className="equipment-choice-image" style={{ backgroundImage: `url("/kike-equipment-sprites-${item.sheet}.png")`, backgroundPosition: equipmentPosition(item.col, item.row) }} />
+                    <strong>{item.label}</strong>
+                    {!unlocked && <span className="avatar-price"><Lock size={11} /> {item.price}</span>}
+                    {equipped && <span className="equipment-check"><Check size={12} /></span>}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="equipment-confirm">
+              {!unlockedEquipment.has(previewEquipment.id) && <span>Saldo depois: <Star size={13} fill="currentColor" /> {Math.max(0, stars - previewEquipment.price)}</span>}
+              <button
+                className="primary-action"
+                disabled={equipmentPurchasePending || (!unlockedEquipment.has(previewEquipment.id) && stars < previewEquipment.price)}
+                onClick={() => void confirmEquipmentChoice()}
+              >
+                {equipmentPurchasePending ? "DESBLOQUEANDO…"
+                  : unlockedEquipment.has(previewEquipment.id)
+                    ? equippedItems.includes(previewEquipment.id) ? "GUARDAR ITEM" : "EQUIPAR ITEM"
+                    : `DESBLOQUEAR POR ${previewEquipment.price}`}
+              </button>
+            </div>
           </section>
         </div>
       )}
