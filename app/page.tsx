@@ -64,6 +64,12 @@ type ActiveTimer = {
   mission?: string;
 };
 
+type ScreenWakeLock = {
+  released: boolean;
+  release: () => Promise<void>;
+  addEventListener: (type: "release", listener: () => void) => void;
+};
+
 const ROUTINES: Routine[] = [
   {
     id: "manha",
@@ -216,6 +222,7 @@ export default function HomePage() {
     ];
   }, [calendarMonth]);
   const progressByDay = useMemo(() => new Map(dailyProgress.map((item) => [item.day, item])), [dailyProgress]);
+  const timerIsRunning = Boolean(activeTimer?.running && activeTimer.seconds > 0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAction("idle"), 2200);
@@ -231,6 +238,45 @@ export default function HomePage() {
     }, 1000);
     return () => window.clearInterval(interval);
   }, [activeTimer?.running, activeTimer?.seconds]);
+
+  useEffect(() => {
+    if (!timerIsRunning) return;
+
+    let wakeLock: ScreenWakeLock | null = null;
+    let cancelled = false;
+
+    async function keepScreenAwake() {
+      if (document.visibilityState !== "visible" || wakeLock || !("wakeLock" in navigator)) return;
+      try {
+        const manager = (navigator as Navigator & {
+          wakeLock: { request: (type: "screen") => Promise<ScreenWakeLock> };
+        }).wakeLock;
+        const acquiredLock = await manager.request("screen");
+        if (cancelled) {
+          await acquiredLock.release();
+          return;
+        }
+        wakeLock = acquiredLock;
+        acquiredLock.addEventListener("release", () => {
+          wakeLock = null;
+        });
+      } catch {
+        // Some browsers or low-power modes may deny Wake Lock; the timer still works normally.
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") void keepScreenAwake();
+    }
+
+    void keepScreenAwake();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (wakeLock && !wakeLock.released) void wakeLock.release();
+    };
+  }, [timerIsRunning]);
 
   useEffect(() => {
     fetch("/api/parent-auth")
