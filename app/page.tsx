@@ -290,6 +290,58 @@ function timerKey(routineId: string, mission: string) {
   return `${routineId}::${mission}`;
 }
 
+function restoreRoutines(value: unknown): Routine[] {
+  if (!Array.isArray(value)) return ROUTINES;
+
+  const restored = value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const saved = candidate as Partial<Routine>;
+    const original = ROUTINES.find((item) => item.id === saved.id);
+    const missions = Array.isArray(saved.missions)
+      ? saved.missions.filter((mission): mission is string => typeof mission === "string" && mission.trim().length > 0)
+      : original?.missions ?? [];
+
+    if (typeof saved.id !== "string" || typeof saved.label !== "string" || missions.length === 0) return [];
+    return [{
+      id: saved.id,
+      label: saved.label,
+      helper: typeof saved.helper === "string" ? saved.helper : original?.helper ?? "Nova aventura",
+      icon: original?.icon ?? Star,
+      accent: typeof saved.accent === "string" ? saved.accent : original?.accent ?? "#ec7d4d",
+      missions,
+    } satisfies Routine];
+  });
+
+  return [
+    ...restored,
+    ...ROUTINES.filter((defaultRoutine) => !restored.some((savedRoutine) => savedRoutine.id === defaultRoutine.id)),
+  ];
+}
+
+function restoreRewards(value: unknown): Reward[] {
+  if (!Array.isArray(value)) return DEFAULT_REWARDS;
+
+  const restored = value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const saved = candidate as Partial<Reward>;
+    const original = DEFAULT_REWARDS.find((item) => item.id === saved.id);
+    if (typeof saved.id !== "string" || typeof saved.title !== "string") return [];
+
+    return [{
+      id: saved.id,
+      title: saved.title,
+      helper: typeof saved.helper === "string" ? saved.helper : original?.helper ?? "Recompensa dos responsáveis",
+      price: Number.isFinite(Number(saved.price)) ? Math.max(0, Number(saved.price)) : original?.price ?? 100,
+      icon: original?.icon ?? Gift,
+      accent: typeof saved.accent === "string" ? saved.accent : original?.accent ?? "#f2a629",
+      action: saved.action === "avatars" ? "avatars" : original?.action,
+      timerMinutes: Number.isFinite(Number(saved.timerMinutes)) ? Math.max(0, Number(saved.timerMinutes)) : original?.timerMinutes,
+    } satisfies Reward];
+  });
+
+  return restored.length ? restored : DEFAULT_REWARDS;
+}
+
 export default function HomePage() {
   const [routines, setRoutines] = useState<Routine[]>(ROUTINES);
   const [routineId, setRoutineId] = useState("manha");
@@ -443,19 +495,14 @@ export default function HomePage() {
       const saved = window.localStorage.getItem("kike-game-config");
       if (saved) {
         const config = JSON.parse(saved) as {
-          routines?: Routine[];
-          rewards?: Reward[];
+          routines?: unknown;
+          rewards?: unknown;
           missionPoints?: Record<string, number>;
           timerMinutes?: Record<string, number>;
         };
         window.queueMicrotask(() => {
-          if (config.routines?.length) {
-            setRoutines([
-              ...config.routines,
-              ...ROUTINES.filter((defaultRoutine) => !config.routines?.some((savedRoutine) => savedRoutine.id === defaultRoutine.id)),
-            ]);
-          }
-          if (config.rewards?.length) setRewards(config.rewards);
+          setRoutines(restoreRoutines(config.routines));
+          setRewards(restoreRewards(config.rewards));
           if (config.missionPoints) setMissionPoints(config.missionPoints);
           if (config.timerMinutes) setTimerMinutes({ ...RECOMMENDED_TIMERS, ...config.timerMinutes });
         });
