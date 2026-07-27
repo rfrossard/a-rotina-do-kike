@@ -422,6 +422,65 @@ input, textarea { font: inherit; }
 .timer-ring strong { font: 800 52px/1 var(--font-display); }
 .timer-ring span { color: #6d7e91; font-size: 12px; font-weight: 900; }
 .timer-actions { display: grid; gap: 9px; }
+.timer-finishing { padding: 14px; color: #21808b; font-weight: 900; }
+
+.celebration-backdrop { z-index: 30; background: rgba(8, 45, 63, .7); }
+.celebration-modal {
+  overflow: hidden;
+  width: min(100%, 410px);
+  padding: 30px 24px 24px;
+  text-align: center;
+  background: linear-gradient(155deg, #fffdf2 0%, #fff3bd 55%, #e9fbef 100%);
+}
+.celebration-modal h2 { margin: 7px 0 10px; font-size: clamp(32px, 8vw, 44px); color: #174f72; }
+.celebration-modal p { max-width: 320px; margin: 0 auto; color: #5d6f7e; font-weight: 700; line-height: 1.45; }
+.celebration-trophy {
+  position: relative;
+  z-index: 1;
+  width: 94px;
+  height: 94px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
+  border: 7px solid white;
+  border-radius: 50%;
+  color: white;
+  background: linear-gradient(#ffd73f, #f49a14);
+  box-shadow: 0 9px 0 #d98212, 0 16px 28px rgba(141, 91, 14, .22);
+  animation: celebration-pop .55s cubic-bezier(.2, 1.45, .45, 1) both;
+}
+.celebration-points {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 18px auto 0;
+  padding: 10px 16px;
+  border-radius: 16px;
+  color: #a96600;
+  background: white;
+  box-shadow: 0 5px 0 rgba(213, 145, 18, .2);
+  font-size: 20px;
+  font-weight: 900;
+}
+.celebration-points svg { color: #ffc525; }
+.celebration-stars { position: absolute; inset: 0; pointer-events: none; }
+.celebration-stars span { position: absolute; color: #ffc72c; font-size: 22px; animation: celebration-sparkle 1.3s ease-in-out infinite alternate; }
+.celebration-stars span:nth-child(1) { left: 9%; top: 12%; animation-delay: -.2s; }
+.celebration-stars span:nth-child(2) { right: 10%; top: 17%; color: #50c878; animation-delay: -.7s; }
+.celebration-stars span:nth-child(3) { left: 16%; top: 43%; color: #35b6d4; animation-delay: -.4s; }
+.celebration-stars span:nth-child(4) { right: 14%; top: 48%; color: #f47a67; animation-delay: -.9s; }
+.celebration-stars span:nth-child(5) { right: 22%; top: 7%; font-size: 15px; animation-delay: -.55s; }
+
+@keyframes celebration-pop {
+  from { opacity: 0; transform: scale(.45) rotate(-12deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes celebration-sparkle {
+  from { opacity: .35; transform: scale(.7) rotate(-12deg); }
+  to { opacity: 1; transform: scale(1.25) rotate(12deg); }
+}
 .timer-main-action { display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 17px; padding: 14px; color: white; background: #21b65b; box-shadow: inset 0 -5px 0 rgba(0,0,0,.14); font-weight: 900; cursor: pointer; }
 .timer-reset { display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; padding: 10px; color: #627589; background: transparent; font-weight: 900; cursor: pointer; }
 

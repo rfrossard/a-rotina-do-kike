@@ -29,10 +29,11 @@ import {
   Sun,
   Timer,
   Trash2,
+  Trophy,
   Utensils,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Routine = {
   id: string;
@@ -57,11 +58,17 @@ type Reward = {
 type DailyProgress = { day: string; earned: number; spent: number };
 type ActivityTotal = { activity: string; count: number };
 type ActiveTimer = {
+  id: string;
   label: string;
   seconds: number;
   totalSeconds: number;
   running: boolean;
   mission?: string;
+};
+type Celebration = {
+  title: string;
+  message: string;
+  points: number;
 };
 
 type ScreenWakeLock = {
@@ -192,6 +199,9 @@ export default function HomePage() {
   const [missionPoints, setMissionPoints] = useState<Record<string, number>>(() => Object.fromEntries(ROUTINES.map((item) => [item.id, 10])));
   const [timerMinutes, setTimerMinutes] = useState<Record<string, number>>(RECOMMENDED_TIMERS);
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const completedTimerIdsRef = useRef(new Set<string>());
   const [progressOpen, setProgressOpen] = useState(false);
   const [progressTab, setProgressTab] = useState<"calendar" | "activities">("calendar");
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
@@ -223,6 +233,8 @@ export default function HomePage() {
   }, [calendarMonth]);
   const progressByDay = useMemo(() => new Map(dailyProgress.map((item) => [item.day, item])), [dailyProgress]);
   const timerIsRunning = Boolean(activeTimer?.running && activeTimer.seconds > 0);
+  const completeMissionRef = useRef(completeMission);
+  completeMissionRef.current = completeMission;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAction("idle"), 2200);
@@ -238,6 +250,33 @@ export default function HomePage() {
     }, 1000);
     return () => window.clearInterval(interval);
   }, [activeTimer?.running, activeTimer?.seconds]);
+
+  useEffect(() => {
+    if (!activeTimer || activeTimer.seconds !== 0 || completedTimerIdsRef.current.has(activeTimer.id)) return;
+
+    const finishedTimer = activeTimer;
+    completedTimerIdsRef.current.add(finishedTimer.id);
+    window.queueMicrotask(() => {
+      setActiveTimer((current) => current?.id === finishedTimer.id ? null : current);
+      if (finishedTimer.mission) {
+        const points = missionPoints[routine.id] ?? 10;
+        completeMissionRef.current(finishedTimer.mission);
+        setCelebration({
+          title: "Parabéns, Kike!",
+          message: `Você concluiu “${finishedTimer.label}”. Os pontos já foram creditados!`,
+          points,
+        });
+      } else {
+        setAction("celebrate");
+        setCelebration({
+          title: "Muito bem, Kike!",
+          message: `O tempo de “${finishedTimer.label}” terminou. Aproveite sua conquista!`,
+          points: 0,
+        });
+      }
+      playCelebrationSound();
+    });
+  }, [activeTimer, missionPoints, routine.id]);
 
   useEffect(() => {
     if (!timerIsRunning) return;
@@ -383,6 +422,7 @@ export default function HomePage() {
       return;
     }
     setActiveTimer({
+      id: crypto.randomUUID(),
       label: mission,
       mission,
       seconds: minutes * 60,
@@ -391,10 +431,59 @@ export default function HomePage() {
     });
   }
 
-  function finishTimer() {
-    const mission = activeTimer?.mission;
-    setActiveTimer(null);
-    if (mission) completeMission(mission);
+  function prepareCelebrationAudio() {
+    const AudioContextClass = window.AudioContext
+      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    audioContextRef.current ??= new AudioContextClass();
+    if (audioContextRef.current.state === "suspended") void audioContextRef.current.resume();
+  }
+
+  function playCelebrationSound() {
+    const context = audioContextRef.current;
+    if (!context) return;
+    void context.resume();
+    const now = context.currentTime;
+    const master = context.createGain();
+    master.gain.setValueAtTime(0.18, now);
+    master.connect(context.destination);
+
+    [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+      const start = now + index * 0.13;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = index === 3 ? "sine" : "triangle";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.exponentialRampToValueAtTime(0.8, start + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+      oscillator.connect(gain);
+      gain.connect(master);
+      oscillator.start(start);
+      oscillator.stop(start + 0.32);
+    });
+
+    [0.62, 0.77, 0.91, 1.04, 1.17].forEach((offset) => {
+      const length = Math.floor(context.sampleRate * 0.11);
+      const buffer = context.createBuffer(1, length, context.sampleRate);
+      const samples = buffer.getChannelData(0);
+      for (let index = 0; index < length; index += 1) {
+        samples[index] = (Math.random() * 2 - 1) * Math.pow(1 - index / length, 2);
+      }
+      const source = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      filter.type = "bandpass";
+      filter.frequency.value = 1500 + Math.random() * 800;
+      filter.Q.value = 0.7;
+      gain.gain.setValueAtTime(0.7, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.11);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(master);
+      source.start(now + offset);
+    });
   }
 
   function resetDay() {
@@ -437,6 +526,7 @@ export default function HomePage() {
     if (item.timerMinutes) {
       setRewardsOpen(false);
       setActiveTimer({
+        id: crypto.randomUUID(),
         label: item.title,
         seconds: item.timerMinutes * 60,
         totalSeconds: item.timerMinutes * 60,
@@ -704,14 +794,33 @@ export default function HomePage() {
             </div>
             {activeTimer.seconds > 0 ? (
               <div className="timer-actions">
-                <button className="timer-main-action" onClick={() => setActiveTimer((current) => current ? { ...current, running: !current.running } : null)}>
+                <button className="timer-main-action" onClick={() => {
+                  if (!activeTimer.running) prepareCelebrationAudio();
+                  setActiveTimer((current) => current ? { ...current, running: !current.running } : null);
+                }}>
                   {activeTimer.running ? <><Pause /> PAUSAR</> : <><Play /> COMEÇAR</>}
                 </button>
                 <button className="timer-reset" onClick={() => setActiveTimer((current) => current ? { ...current, seconds: current.totalSeconds, running: false } : null)}><RotateCcw /> Reiniciar</button>
               </div>
             ) : (
-              <button className="primary-action" onClick={finishTimer}>{activeTimer.mission ? "CONCLUIR MISSÃO" : "FINALIZAR"}</button>
+              <div className="timer-finishing">Creditando a conquista…</div>
             )}
+          </section>
+        </div>
+      )}
+
+      {celebration && (
+        <div className="modal-backdrop celebration-backdrop" role="presentation">
+          <section className="game-modal celebration-modal" role="dialog" aria-modal="true" aria-labelledby="celebration-title">
+            <div className="celebration-stars" aria-hidden="true"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
+            <div className="celebration-trophy"><Trophy size={54} /></div>
+            <span className="eyebrow">MISSÃO CONCLUÍDA</span>
+            <h2 id="celebration-title">{celebration.title}</h2>
+            <p>{celebration.message}</p>
+            {celebration.points > 0 && (
+              <div className="celebration-points"><Star fill="currentColor" /> +{celebration.points} estrelas</div>
+            )}
+            <button className="primary-action" onClick={() => setCelebration(null)}>CONTINUAR</button>
           </section>
         </div>
       )}
