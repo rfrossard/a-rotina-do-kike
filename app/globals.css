@@ -92,6 +92,41 @@ input, textarea { font: inherit; }
   animation: character-celebrate .55s ease-in-out 3;
 }
 
+.companion-image-layer {
+  position: absolute;
+  z-index: 1;
+  width: min(23%, 170px);
+  aspect-ratio: 1.029;
+  left: 67%;
+  top: 48%;
+  translate: -50% -18%;
+  background-image: url("/kike-yorkie-sprites-20.png");
+  background-size: 500% 400%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  filter: drop-shadow(0 13px 10px rgba(20, 70, 62, .2));
+  transform-origin: 50% 90%;
+  animation: companion-breathe 2.7s ease-in-out infinite;
+}
+
+.companion-image-layer.wave { animation: companion-wave .8s ease-in-out 2; }
+.companion-image-layer.celebrate { animation: companion-celebrate .45s ease-in-out 4; }
+
+@keyframes companion-breathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.025) translateY(-3px); }
+}
+
+@keyframes companion-wave {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  50% { transform: rotate(3deg) translateY(-7px); }
+}
+
+@keyframes companion-celebrate {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.06) translateY(-10px); }
+}
+
 @keyframes character-breathe {
   0%, 100% { transform: scale(1) translateY(0); }
   50% { transform: scale(1.02) translateY(-4px); }
@@ -362,6 +397,7 @@ input, textarea { font: inherit; }
 .avatar-preview { position: relative; height: 270px; overflow: hidden; margin-bottom: 14px; border-radius: 24px; background: linear-gradient(#94e8f8, #d7f4c1); }
 .avatar-preview::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 26px; height: 22px; border-radius: 50%; background: rgba(39, 93, 67, .16); filter: blur(5px); }
 .avatar-sprite-preview { position: absolute; z-index: 1; width: 38%; aspect-ratio: 0.824; left: 50%; top: 4px; translate: -50% 0; background-image: url("/kike-avatar-sprites-20-fitted.png"); background-size: 500% 400%; background-repeat: no-repeat; filter: drop-shadow(0 14px 9px rgba(27, 73, 61, .2)); animation: character-breathe 3.2s ease-in-out infinite; }
+.companion-sprite-preview { position: absolute; z-index: 1; width: 48%; aspect-ratio: 1.029; left: 50%; top: 20px; translate: -50% 0; background-image: url("/kike-yorkie-sprites-20.png"); background-size: 500% 400%; background-repeat: no-repeat; filter: drop-shadow(0 14px 9px rgba(27, 73, 61, .2)); animation: companion-breathe 2.7s ease-in-out infinite; }
 .avatar-description { position: absolute; z-index: 2; left: 14px; right: 14px; bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 14px; color: var(--ink); background: rgba(255,255,255,.88); backdrop-filter: blur(8px); }
 .avatar-description strong, .avatar-description span { display: block; }
 .avatar-description span { color: #65758b; font-size: 12px; text-align: right; }
@@ -373,6 +409,11 @@ input, textarea { font: inherit; }
 .avatar-choices button.selected { border-color: #16a8b4; background: #dff8f6; box-shadow: 0 4px 0 rgba(12, 104, 113, .18); }
 .avatar-choices button.locked .avatar-choice-image { filter: saturate(.55) brightness(.72); opacity: .76; }
 .avatar-choice-image { display: block; width: 100%; aspect-ratio: 0.824; margin-bottom: 4px; background-image: url("/kike-avatar-sprites-20-fitted.png"); background-size: 500% 400%; background-repeat: no-repeat; }
+.companion-choice-image { display: block; width: 100%; aspect-ratio: 1.029; margin-bottom: 4px; background-image: url("/kike-yorkie-sprites-20.png"); background-size: 500% 400%; background-repeat: no-repeat; }
+.avatar-choices button.locked .companion-choice-image { filter: saturate(.55) brightness(.72); opacity: .76; }
+.character-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: -4px 0 12px; padding: 5px; border-radius: 15px; background: #e8f3f1; }
+.character-tabs button { border: 0; border-radius: 11px; padding: 9px; color: #66768a; background: transparent; font-weight: 900; cursor: pointer; }
+.character-tabs button.active { color: white; background: #16a8b4; box-shadow: 0 4px 0 rgba(9,112,121,.18); }
 .avatar-choice-label { display: block; overflow: hidden; font-size: 10px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
 .avatar-price { position: absolute; top: 5px; right: 5px; display: flex !important; align-items: center; gap: 2px; padding: 3px 5px; border-radius: 8px; color: white; background: rgba(25, 50, 80, .9); font-size: 9px !important; }
 .avatar-confirmation { position: sticky; bottom: -24px; margin: 10px -3px -3px; padding: 10px 3px 3px; background: linear-gradient(transparent, var(--cream) 22%); }
@@ -629,6 +670,7 @@ input, textarea { font: inherit; }
   .music-label { right: 52%; top: 58%; }
   .music-mode .music-label { right: 4%; top: 18%; }
   .music-mode .character-image-layer { left: 38%; top: 42%; }
+  .companion-image-layer { left: 52%; top: 58%; width: min(17%, 165px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
