@@ -325,7 +325,7 @@ export default function HomePage() {
   const [unlockedAvatars, setUnlockedAvatars] = useState<Set<string>>(() => new Set(STARTER_AVATARS));
   const [avatarMessage, setAvatarMessage] = useState("5 visuais disponíveis · 15 para desbloquear");
   const [avatarPurchasePending, setAvatarPurchasePending] = useState(false);
-  const [companionId, setCompanionId] = useState<(typeof COMPANIONS)[number]["id"]>("yorkie-classica");
+  const [companionId, setCompanionId] = useState<(typeof COMPANIONS)[number]["id"] | null>(null);
   const [previewCompanionId, setPreviewCompanionId] = useState<(typeof COMPANIONS)[number]["id"]>("yorkie-classica");
   const [unlockedCompanions, setUnlockedCompanions] = useState<Set<string>>(() => new Set(STARTER_COMPANIONS));
   const [unlockedEquipment, setUnlockedEquipment] = useState<Set<string>>(() => new Set(["bola-de-futebol"]));
@@ -339,7 +339,7 @@ export default function HomePage() {
   const routine = useMemo(() => routines.find((item) => item.id === routineId) ?? routines[0], [routineId, routines]);
   const selectedAvatar = AVATARS.find((item) => item.id === avatarId) ?? AVATARS[0];
   const previewAvatar = AVATARS.find((item) => item.id === previewAvatarId) ?? AVATARS[0];
-  const selectedCompanion = COMPANIONS.find((item) => item.id === companionId) ?? COMPANIONS[0];
+  const selectedCompanion = COMPANIONS.find((item) => item.id === companionId) ?? null;
   const previewCompanion = COMPANIONS.find((item) => item.id === previewCompanionId) ?? COMPANIONS[0];
   const previewEquipment = EQUIPMENT.find((item) => item.id === previewEquipmentId) ?? EQUIPMENT[0];
   const activeEquipment = equippedItems.map((id) => EQUIPMENT.find((item) => item.id === id)).filter((item): item is EquipmentItem => Boolean(item));
@@ -646,7 +646,7 @@ export default function HomePage() {
 
   function openAvatarPicker() {
     setPreviewAvatarId(avatarId);
-    setPreviewCompanionId(companionId);
+    setPreviewCompanionId(companionId ?? "yorkie-classica");
     setCharacterTab("kike");
     setAvatarMessage("Toque em um visual para experimentar antes de confirmar");
     setAvatarOpen(true);
@@ -719,15 +719,21 @@ export default function HomePage() {
     }
     setAvatarMessage(stars < item.price
       ? `Faltam ${item.price - stars} estrelas para desbloquear ${item.label}`
-      : `Confira a companheira. Desbloquear custa ${item.price} estrelas.`);
+      : `Confira o visual da Luly. Desbloquear custa ${item.price} estrelas.`);
   }
 
   async function confirmCompanionChoice() {
     const item = previewCompanion;
     if (unlockedCompanions.has(item.id)) {
+      if (item.id === companionId) {
+        setCompanionId(null);
+        window.localStorage.removeItem("kike-selected-companion");
+        setAvatarMessage("Luly foi descansar e não aparecerá nas telas");
+        return;
+      }
       setCompanionId(item.id);
       window.localStorage.setItem("kike-selected-companion", item.id);
-      setAvatarMessage(`${item.label} está acompanhando o Kike`);
+      setAvatarMessage(`Luly com visual ${item.label} está acompanhando o Kike`);
       setAction("celebrate");
       return;
     }
@@ -1001,12 +1007,12 @@ export default function HomePage() {
           aria-label="Kike sorrindo e acenando no centro do seu bairro"
           style={{ backgroundPosition: spritePosition(selectedAvatar.col, selectedAvatar.row) }}
         />
-        <div
+        {selectedCompanion && <div
           className={`companion-image-layer ${action}`}
           role="img"
-          aria-label={`Cachorrinha Yorkshire Terrier ${selectedCompanion.label} acompanhando o Kike`}
+          aria-label={`Luly, Yorkshire Terrier com visual ${selectedCompanion.label}, acompanhando o Kike`}
           style={{ backgroundPosition: spritePosition(selectedCompanion.col, selectedCompanion.row) }}
-        />
+        />}
         {activeEquipment.map((item, index) => (
           <div
             className={`equipment-scene-layer equipment-slot-${index + 1}`}
@@ -1323,7 +1329,7 @@ export default function HomePage() {
             <h2 id="avatar-title">Monte a dupla de hoje</h2>
             <div className="character-tabs" role="tablist">
               <button className={characterTab === "kike" ? "active" : ""} onClick={() => { setCharacterTab("kike"); setAvatarMessage("Escolha um visual do Kike"); }}>Kike</button>
-              <button className={characterTab === "companion" ? "active" : ""} onClick={() => { setCharacterTab("companion"); setAvatarMessage("Escolha a companheira do Kike"); }}>Cachorrinha</button>
+              <button className={characterTab === "companion" ? "active" : ""} onClick={() => { setCharacterTab("companion"); setAvatarMessage("Escolha um visual para a Luly"); }}>Luly</button>
             </div>
             <div className="avatar-preview">
               <div
@@ -1361,7 +1367,7 @@ export default function HomePage() {
               ))}
             </div>
             ) : (
-            <div className="avatar-choices" aria-label="Variações da cachorrinha">
+            <div className="avatar-choices" aria-label="Variações da Luly">
               {COMPANIONS.map((item) => (
                 <button
                   key={item.id}
@@ -1405,7 +1411,7 @@ export default function HomePage() {
                       ? previewAvatar.id === avatarId ? "VISUAL EM USO" : "USAR ESTE VISUAL"
                       : `DESBLOQUEAR POR ${previewAvatar.price}`
                     : unlockedCompanions.has(previewCompanion.id)
-                      ? previewCompanion.id === companionId ? "COMPANHEIRA EM USO" : "USAR ESTA COMPANHEIRA"
+                      ? previewCompanion.id === companionId ? "REMOVER LULY DAS TELAS" : "USAR ESTE VISUAL DA LULY"
                       : `DESBLOQUEAR POR ${previewCompanion.price}`}
               </button>
             </div>
